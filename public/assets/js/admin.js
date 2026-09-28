@@ -40,7 +40,8 @@
     fd.append('csrf', form.querySelector('[name=csrf]').value);
     fd.append('action', 'upload');
     files.forEach(function (f) { fd.append('photos[]', f, f.name); });
-    return fetch(form.action, { method: 'POST', body: fd, credentials: 'same-origin' }).then(function (r) {
+    // getAttribute: form.action would return the hidden <input name="action">, not the URL.
+    return fetch(form.getAttribute('action'), { method: 'POST', body: fd, credentials: 'same-origin' }).then(function (r) {
       if (!r.ok) throw new Error('Server said ' + r.status);
     });
   }
