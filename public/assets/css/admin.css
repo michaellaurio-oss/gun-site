@@ -84,3 +84,23 @@
 .picker-add { margin: 2px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 14px; color: var(--text-3); }
 .picker-empty { margin: 0; font-size: 14px; }
 .btn-sm { min-height: 40px; padding: 0 14px; font-size: 14px; }
+
+/* CA roster page */
+.roster-status { padding: 18px 20px; border: 1px solid var(--border); border-radius: var(--r-card); background: var(--surface); max-width: 900px; }
+.roster-status p { margin: 0 0 12px; line-height: 1.55; }
+.roster-status a { text-decoration: underline; }
+.roster-actions { display: flex; flex-direction: column; gap: 10px; }
+.roster-actions summary { cursor: pointer; font-size: 14px; color: var(--text-3); min-height: 32px; display: flex; align-items: center; }
+form.inline { display: inline; margin: 0; }
+.nowrap { white-space: nowrap; }
+.dropped { margin: 10px 0 0; padding-left: 1.2em; }
+.dropped li { margin: 6px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.confirm-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 14px 16px; border: 1px solid #B9D6C6; border-radius: var(--r-card); background: #F2F8F4; }
+.roster-list { display: flex; flex-direction: column; gap: 12px; }
+.roster-item { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; border: 1px solid var(--border); border-radius: var(--r-card); background: var(--surface); }
+.roster-item-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.roster-item a:not(.btn) { text-decoration: underline; text-decoration-color: var(--border-btn); }
+.cands { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.cands li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.roster-item-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.roster-pick { display: flex; flex-direction: column; gap: 12px; padding: 18px 20px; border: 1px solid #C9D9EA; border-radius: var(--r-card); background: #F4F8FC; max-width: 900px; }

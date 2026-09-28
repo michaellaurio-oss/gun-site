@@ -3,10 +3,20 @@
 require __DIR__ . '/../app/bootstrap.php';
 require __DIR__ . '/../app/security.php';
 require __DIR__ . '/../app/photos.php';
+require __DIR__ . '/../app/migrate.php';
+require __DIR__ . '/../app/roster.php';
 
 header('X-Robots-Tag: noindex, nofollow');
 header('X-Frame-Options: DENY');
 header('Cache-Control: no-store');
+
+// Apply any pending database updates (app/migrations) before anything touches the tables.
+try {
+    apply_migrations(db());
+} catch (Throwable $e) {
+    http_response_code(500);
+    exit('Database update failed: ' . e($e->getMessage()));
+}
 
 const ADMIN_IDLE_SECONDS = 4 * 3600;
 const LISTING_STATUSES = ['draft', 'coming_soon', 'available', 'on_hold', 'pending', 'sold', 'withdrawn'];
@@ -98,7 +108,7 @@ function friendly_db_error(Throwable $e): string
 
 function admin_header(string $title, string $active = ''): void
 {
-    $nav = ['listings' => ['Listings', url('admin/')], 'models' => ['Firearms', url('admin/models.php')],
+    $nav = ['listings' => ['Listings', url('admin/')], 'models' => ['Firearms', url('admin/models.php')], 'roster' => ['CA roster', url('admin/roster.php')],
             'messages' => ['Messages', url('admin/messages.php')]];
     $unread = 0;
     try {

@@ -34,6 +34,7 @@ $groups = [
     'California' => [
         ['ca_rostered', 'CA handgun roster', 'roster', 'Check oag.ca.gov/firearms/certified-handguns'],
         ['ca_roster_checked_on', 'Roster checked on', 'date', 'Filled with today when you change the roster status.'],
+        ['ca_roster_entry', 'Roster entry', 'text', 'Set when you pick this firearm on the CA roster page, e.g. /firearms/handgun/grp.'],
     ],
     'Dimensions (inches)' => [
         ['barrel_length_in', 'Barrel length', 'num', ''],
@@ -100,6 +101,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($data['category'] !== 'handgun') {
         $data['ca_rostered'] = null;
     }
+    if ($data['ca_rostered'] !== 1) {
+        $data['ca_roster_entry'] = null;   // a roster link only makes sense for on-roster firearms
+    }
     if ($data['ca_rostered'] !== ($model['ca_rostered'] ?? null) && $data['ca_rostered'] !== null && ($data['ca_roster_checked_on'] ?? '') === ($model['ca_roster_checked_on'] ?? '')) {
         $data['ca_roster_checked_on'] = date('Y-m-d');
     }
@@ -153,6 +157,31 @@ if (!$model && $q !== '') {
         }
     }
 }
+// Pre-fill from a CA roster entry ("Use this" below, or "Add as a new firearm" on the roster page).
+$fromRoster = null;
+if (!$model && isset($_GET['roster'])) {
+    $st = $db->prepare('SELECT * FROM ca_roster WHERE detail_path = ? LIMIT 1');
+    $st->execute([(string)$_GET['roster']]);
+    if ($fromRoster = $st->fetch() ?: null) {
+        $make = roster_display_make($db, $fromRoster['manufacturer']);
+        $name = roster_clean_model($fromRoster['model_base']);
+        if (roster_make_key($make) === 'glock' && preg_match('/^\d/', $name)) {
+            $name = 'G' . $name;   // match the shop's naming, e.g. roster "19" -> "G19"
+        }
+        $v = array_merge($v, [
+            'manufacturer' => $make, 'model' => $name, 'category' => 'handgun',
+            'caliber' => $fromRoster['caliber'], 'barrel_length_in' => $fromRoster['barrel_length_in'],
+            'frame_material' => $fromRoster['material'], 'action' => $fromRoster['gun_type'] === 'Revolver' ? 'Revolver' : null,
+            'ca_rostered' => 1, 'ca_roster_checked_on' => date('Y-m-d'), 'ca_roster_entry' => $fromRoster['detail_path'],
+            'source_url' => ROSTER_SITE . $fromRoster['detail_path'],
+        ]);
+    }
+}
+// Roster search on the new-firearm page (starts with the text typed on the listing page).
+$rosterQ = trim((string)($_GET['roster_q'] ?? ($fromRoster ? '' : $q)));
+$rosterInfo = roster_status($db);
+$rosterResults = (!$model && !$fromRoster && $rosterQ !== '' && $rosterInfo['rows']) ? roster_search($db, $rosterQ, 15) : [];
+
 $placeholder = strpos((string)($v['data_notes'] ?? ''), trim(PLACEHOLDER_NOTE)) !== false;
 $heading = $model ? $v['manufacturer'] . ' ' . $v['model'] : 'New firearm';
 $listings = [];
@@ -173,6 +202,36 @@ admin_header($heading, 'models');
 
 <?php if ($returnListing): ?>
   <div class="alert alert-ok" role="status">Add the firearm, then you'll go straight back to the listing with it selected. Only Manufacturer, Model and Type are required; specs can be added later.</div>
+<?php endif; ?>
+
+<?php if (!$model && $rosterInfo['rows']): ?>
+<section class="roster-pick">
+  <?php if ($fromRoster): ?>
+    <p style="margin:0"><strong>Filled in from the CA roster:</strong> <?= e($fromRoster['manufacturer'] . ' ' . $fromRoster['model']) ?> (<?= e($fromRoster['caliber']) ?>).
+      Check the model name, then add the firearm. <a href="<?= e(url('admin/model.php', ['return' => $returnListing ? 'listing' : null, 'listing' => $returnId ?: null])) ?>">Start over</a></p>
+  <?php else: ?>
+    <h2 style="margin:0;font-size:20px">Handgun? Start from the CA roster</h2>
+    <form method="get" action="<?= e(url('admin/model.php')) ?>" class="admin-filters">
+      <?php if ($returnListing): ?><input type="hidden" name="return" value="listing"><?php endif; ?>
+      <?php if ($returnId): ?><input type="hidden" name="listing" value="<?= $returnId ?>"><?php endif; ?>
+      <label for="roster_q" class="sr-only">Search the CA roster</label>
+      <input class="input" id="roster_q" name="roster_q" type="search" value="<?= e($rosterQ) ?>" placeholder="e.g. glock 19, smith 686, ruger lcr">
+      <button class="btn btn-dark" type="submit">Search roster</button>
+    </form>
+    <?php if ($rosterQ !== '' && !$rosterResults): ?>
+      <p class="muted small" style="margin:0">Nothing on the roster matches "<?= e($rosterQ) ?>". Off-roster, older or long guns: fill in the form below.</p>
+    <?php endif; ?>
+    <?php if ($rosterResults): ?>
+      <ul class="cands">
+      <?php foreach ($rosterResults as $r): ?>
+        <li><a class="btn btn-outline btn-sm" href="<?= e(url('admin/model.php', ['roster' => $r['detail_path'], 'return' => $returnListing ? 'listing' : null, 'listing' => $returnId ?: null])) ?>">Use this</a>
+          <?= e($r['manufacturer'] . ' ' . $r['model']) ?> <span class="muted">— <?= e($r['caliber']) ?><?= $r['barrel_length_in'] !== null ? ', ' . e(num($r['barrel_length_in'])) . '" barrel' : '' ?>, <?= e($r['gun_type']) ?></span></li>
+      <?php endforeach; ?>
+      </ul>
+    <?php endif; ?>
+    <p class="muted small" style="margin:0">Picking a roster entry fills in make, model, caliber, barrel length, frame and CA roster status.</p>
+  <?php endif; ?>
+</section>
 <?php endif; ?>
 <form method="post" action="<?= e(url('admin/model.php', ['id' => $id ?: null, 'return' => $returnListing ? 'listing' : null, 'listing' => $returnId ?: null])) ?>" class="admin-form">
   <?= csrf_field() ?>

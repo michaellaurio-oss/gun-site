@@ -14,6 +14,8 @@ PRAGMA foreign_keys = ON;
 -- NULL = not yet verified from a manufacturer or retailer source.
 
 DROP TABLE IF EXISTS login_attempts;
+DROP TABLE IF EXISTS ca_roster;
+DROP TABLE IF EXISTS schema_migrations;
 DROP TABLE IF EXISTS contact_messages;
 DROP TRIGGER IF EXISTS trg_listings_new_offroster_ins;
 DROP TRIGGER IF EXISTS trg_listings_new_offroster_upd;
@@ -74,6 +76,7 @@ CREATE TABLE firearms (
     -- California
     ca_rostered          INTEGER CHECK (ca_rostered IN (0,1)),  -- handguns only: 1 = on current CA DOJ Handgun Roster, 0 = not on roster, NULL = not checked / not applicable (long guns)
     ca_roster_checked_on TEXT,                          -- date the roster status was last verified (YYYY-MM-DD)
+    ca_roster_entry      TEXT,                          -- ca_roster.detail_path this model was matched to (see ca_roster)
 
     -- Build
     frame_material       TEXT,
@@ -174,7 +177,7 @@ CREATE TABLE listing_photos (
 
 CREATE INDEX idx_listing_photos_listing ON listing_photos(listing_id, sort_order);
 
--- Messages from the contact form (added by migrations/001_contact_messages.sql)
+-- Messages from the contact form (added by app/migrations/001_contact_messages.sql)
 CREATE TABLE contact_messages (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     name          TEXT NOT NULL,
@@ -190,7 +193,7 @@ CREATE TABLE contact_messages (
 
 CREATE INDEX idx_contact_messages_created ON contact_messages(created_at);
 
--- Failed admin logins (added by migrations/002_login_attempts.sql)
+-- Failed admin logins (added by app/migrations/002_login_attempts.sql)
 CREATE TABLE login_attempts (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     ip_hash       TEXT NOT NULL,
@@ -198,6 +201,30 @@ CREATE TABLE login_attempts (
 );
 
 CREATE INDEX idx_login_attempts ON login_attempts(ip_hash, attempted_at);
+
+-- Local copy of the CA DOJ Handgun Roster (added by app/migrations/003_ca_roster.sql).
+-- Filled by Admin > CA roster > Refresh; firearms.ca_roster_entry points at detail_path.
+CREATE TABLE ca_roster (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    detail_path      TEXT NOT NULL,          -- roster page of the model, e.g. /firearms/handgun/grp (stable id)
+    manufacturer     TEXT NOT NULL,          -- as listed by DOJ, e.g. 'Sturm, Ruger & Co.'
+    model            TEXT NOT NULL,          -- as listed, without the court-order asterisk
+    model_base       TEXT NOT NULL,          -- part before ' / ' (the material)
+    material         TEXT,
+    gun_type         TEXT,                   -- Pistol / Revolver
+    barrel_length_in REAL,
+    caliber          TEXT,
+    expires_on       TEXT,                   -- YYYY-MM-DD
+    court_order      INTEGER NOT NULL DEFAULT 0 CHECK (court_order IN (0,1)),  -- * = added by court order (Boland v. Bonta)
+    imported_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX idx_ca_roster_path ON ca_roster(detail_path);
+CREATE INDEX idx_ca_roster_make ON ca_roster(manufacturer);
+
+-- Database updates already included in this file (app/migrate.php skips these).
+CREATE TABLE schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT (datetime('now')));
+INSERT INTO schema_migrations (version) VALUES ('001'), ('002'), ('003');
 
 -- What the website shows: guns currently for sale, with their key specs
 CREATE VIEW listings_public AS
