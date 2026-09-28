@@ -2,7 +2,7 @@
 // Local tool to set the admin password in a browser (same way you'll type it at login).
 // Run:   php -S 127.0.0.1:8765 deploy/password-tool.php     then open http://127.0.0.1:8765
 // Writes deploy/config.local.php (only a hash of the password). Then upload it with:
-//        powershell -ExecutionPolicy Bypass -File deploy\deploy.ps1 -Config
+//        powershell -ExecutionPolicy Bypass -File deploy/deploy.ps1 -Config
 
 $origin = 'http://127.0.0.1:8765';
 $file = __DIR__ . '/config.local.php';
@@ -56,7 +56,7 @@ code{background:#F1EFEA;padding:2px 6px;border-radius:4px}
 <h1>Set admin password</h1>
 <p>Runs only on this computer. Only a scrambled hash of the password is saved.</p>
 <?php if ($ok): ?>
-  <div class="msg ok"><strong>Saved.</strong> Now upload it: in Claude Code type<br><code>! powershell -ExecutionPolicy Bypass -File deploy\deploy.ps1 -Config</code><br>then log in at <a href="https://the-laurios.com/gun-site/admin/">the-laurios.com/gun-site/admin/</a>.</div>
+  <div class="msg ok"><strong>Saved.</strong> Now upload it: in Claude Code type<br><code>! powershell -ExecutionPolicy Bypass -File deploy/deploy.ps1 -Config</code><br>then log in at <a href="https://the-laurios.com/gun-site/admin/">the-laurios.com/gun-site/admin/</a>.</div>
 <?php else: ?>
   <?php if ($msg): ?><div class="msg err" role="alert"><?= htmlspecialchars($msg) ?></div><?php endif; ?>
   <form method="post" autocomplete="off">
