@@ -79,7 +79,7 @@ try {
 
     if ($Config) {
         $file = Join-Path $PSScriptRoot 'config.local.php'
-        if (-not (Test-Path $file)) { throw 'deploy\config.local.php not found. Run deploy\set-admin-password.ps1 first.' }
+        if (-not (Test-Path $file)) { throw 'deploy\config.local.php not found. Create it with: php -S 127.0.0.1:8765 deploy/password-tool.php' }
         Invoke-Curl @('--ftp-create-dirs', '-T', $file, ($base + 'app/config.local.php'))
         Write-Host 'Uploaded app/config.local.php.'
         return
