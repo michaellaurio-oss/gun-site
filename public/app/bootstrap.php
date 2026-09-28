@@ -3,6 +3,9 @@
 
 declare(strict_types=1);
 
+// Buffer page output so headers (session cookie, redirects) can still be sent after HTML starts.
+ob_start();
+
 $GLOBALS['config'] = require __DIR__ . '/config.php';
 $GLOBALS['shop']   = require __DIR__ . '/shop.php';
 

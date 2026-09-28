@@ -1,6 +1,7 @@
 <?php
 require __DIR__ . '/app/bootstrap.php';
 require __DIR__ . '/app/security.php';
+csrf_token();  // start the session before any output
 
 $stock = mb_substr(trim((string)($_GET['stock'] ?? '')), 0, 40);
 $gun = mb_substr(trim((string)($_GET['gun'] ?? '')), 0, 120);

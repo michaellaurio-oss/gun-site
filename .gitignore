@@ -26,3 +26,6 @@ public/data/*
 public/photos/*
 !public/photos/.gitkeep
 backups/
+
+# Deploy state, first-deploy database, server config
+deploy/.deploy-state.json
