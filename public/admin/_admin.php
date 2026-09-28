@@ -13,6 +13,15 @@ const LISTING_STATUSES = ['draft', 'coming_soon', 'available', 'on_hold', 'pendi
 const CONDITIONS = ['New', 'Like New', 'Excellent', 'Very Good', 'Good', 'Fair', 'Poor'];
 const CATEGORIES = ['handgun', 'rifle', 'shotgun', 'other'];
 
+const PUBLIC_STATUSES = ['coming_soon', 'available', 'on_hold', 'pending'];
+
+/** Next free stock number in the U-0001 series. */
+function next_stock_number(): string
+{
+    $max = db()->query("SELECT MAX(CAST(SUBSTR(stock_number, 3) AS INTEGER)) FROM listings WHERE stock_number GLOB 'U-[0-9]*'")->fetchColumn();
+    return 'U-' . str_pad((string)((int)$max + 1), 4, '0', STR_PAD_LEFT);
+}
+
 function status_name(string $s): string
 {
     return ['draft' => 'Draft (hidden)', 'coming_soon' => 'Coming soon', 'available' => 'Available', 'on_hold' => 'On hold',

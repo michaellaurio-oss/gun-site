@@ -49,8 +49,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'sold_at'             => in_text('sold_at', 10),
             'sold_price_usd'      => in_num('sold_price_usd'),
         ];
-        if (in_array($data['status'], ['coming_soon', 'available', 'on_hold', 'pending'], true) && !$data['listed_at']) {
-            $data['listed_at'] = date('Y-m-d');
+        $assignedStock = null;
+        if (in_array($data['status'], PUBLIC_STATUSES, true)) {
+            if (!$data['listed_at']) {
+                $data['listed_at'] = date('Y-m-d');
+            }
+            if (!$data['stock_number']) {
+                $data['stock_number'] = $assignedStock = next_stock_number();
+            }
         }
         if ($data['status'] === 'sold' && !$data['sold_at']) {
             $data['sold_at'] = date('Y-m-d');
@@ -70,6 +76,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $db->prepare("INSERT INTO listings ($cols) VALUES ($vals)")->execute($data);
                 $id = (int)$db->lastInsertId();
                 flash('Listing created. Add photos below.');
+            }
+            if ($assignedStock) {
+                flash('Stock # ' . $assignedStock . ' assigned.');
             }
             unset($_SESSION['form']);
             redirect(url('admin/listing.php', ['id' => $id]));
@@ -170,9 +179,7 @@ if ($listing) {
     $st->execute([$id]);
     $photos = $st->fetchAll();
 }
-$suggest = '';
-$max = $db->query("SELECT MAX(CAST(SUBSTR(stock_number, 3) AS INTEGER)) FROM listings WHERE stock_number GLOB 'U-[0-9]*'")->fetchColumn();
-$suggest = 'U-' . str_pad((string)(((int)$max) + 1), 4, '0', STR_PAD_LEFT);
+$suggest = next_stock_number();
 
 $heading = $listing ? ($listing['title'] ?: '') : 'New listing';
 if ($listing && !$heading) {
@@ -225,7 +232,7 @@ admin_header($heading, 'listings');
       <div class="field">
         <label for="stock_number">Stock #</label>
         <input class="input mono" id="stock_number" name="stock_number" value="<?= $val('stock_number') ?>" placeholder="<?= e($suggest) ?>">
-        <span class="hint">Required once listed as Available / On hold / Pending. Next free: <?= e($suggest) ?></span>
+        <span class="hint">Leave empty and the next free number (<?= e($suggest) ?>) is filled in when the listing goes on the site. Or type your own.</span>
       </div>
       <div class="field">
         <label for="status">Status</label>

@@ -2,19 +2,33 @@
 require __DIR__ . '/_admin.php';
 require_login();
 
-/** Change status, filling listed_at / sold_at the first time. Returns an error message or ''. */
-function set_listing_status(int $id, string $status): string
+/**
+ * Change status, filling listed_at / sold_at the first time and giving a listing that goes
+ * on the site the next free stock number if it has none. Returns an error message or ''.
+ */
+function set_listing_status(int $id, string $status, array &$assigned): string
 {
     if (!in_array($status, LISTING_STATUSES, true)) {
         return 'Unknown status.';
     }
     try {
+        $st = db()->prepare('SELECT stock_number FROM listings WHERE id = ?');
+        $st->execute([$id]);
+        $stock = $st->fetchColumn();
+        $newStock = null;
+        if (in_array($status, PUBLIC_STATUSES, true) && ($stock === null || $stock === '')) {
+            $newStock = next_stock_number();
+        }
         db()->prepare(
             "UPDATE listings SET status = :s, updated_at = datetime('now'),
+               stock_number = COALESCE(:n, stock_number),
                listed_at = CASE WHEN :s IN ('coming_soon','available','on_hold','pending') AND listed_at IS NULL THEN date('now') ELSE listed_at END,
                sold_at   = CASE WHEN :s = 'sold' AND sold_at IS NULL THEN date('now') ELSE sold_at END
              WHERE id = :id"
-        )->execute([':s' => $status, ':id' => $id]);
+        )->execute([':s' => $status, ':n' => $newStock, ':id' => $id]);
+        if ($newStock !== null) {
+            $assigned[] = $newStock;
+        }
         return '';
     } catch (PDOException $e) {
         return friendly_db_error($e);
@@ -30,12 +44,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $ok = 0;
     $fails = [];
+    $assigned = [];
     foreach ($ids as $id) {
-        $err = set_listing_status($id, $status);
+        $err = set_listing_status($id, $status, $assigned);
         $err === '' ? $ok++ : $fails[$err] = ($fails[$err] ?? 0) + 1;
     }
     if ($ok) {
         flash($ok . ' listing' . ($ok === 1 ? '' : 's') . ' set to ' . status_name($status) . '.');
+    }
+    if ($assigned) {
+        flash('New stock number' . (count($assigned) === 1 ? '' : 's') . ' assigned: ' . (count($assigned) > 3 ? $assigned[0] . ' to ' . end($assigned) : implode(', ', $assigned)) . '.');
     }
     foreach ($fails as $msg => $n) {
         flash($n . ' not changed: ' . $msg, 'err');
