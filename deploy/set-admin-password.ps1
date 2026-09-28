@@ -28,7 +28,10 @@ if ($pw1 -ne $pw2) { throw 'The two passwords did not match.' }
 $contact = Read-Host -Prompt 'Email address for website messages (leave empty to only keep them in the admin inbox)'
 
 # Hash via stdin so the password never appears on a command line.
-$hash = $pw1 | & $php -r 'echo password_hash(rtrim(fgets(STDIN), "\r\n"), PASSWORD_DEFAULT);'
+# No double quotes in the PHP code (Windows PowerShell 5.1 strips them when calling php.exe),
+# and no byte-order mark on stdin (PowerShell adds one by default; PHP also removes it just in case).
+$OutputEncoding = New-Object System.Text.UTF8Encoding $false
+$hash = $pw1 | & $php -r '$s = rtrim(fgets(STDIN), chr(13) . chr(10)); $b = chr(239) . chr(187) . chr(191); if (strpos($s, $b) === 0) { $s = substr($s, 3); } echo password_hash($s, PASSWORD_DEFAULT);'
 $pw1 = $null; $pw2 = $null
 if (-not $hash -or -not $hash.StartsWith('$2y$')) { throw 'Could not create the password hash.' }
 $salt = -join ((1..32) | ForEach-Object { '{0:x}' -f (Get-Random -Maximum 16) })
