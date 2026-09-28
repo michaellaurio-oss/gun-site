@@ -33,6 +33,18 @@ function photo_url(?string $path): ?string
     return preg_match('~^https?://~i', $path) ? $path : url($path);
 }
 
+/** Small version of a stored photo (name-sm.jpg made at upload) if it exists. */
+function thumb_url(?string $path): ?string
+{
+    if ($path !== null && preg_match('~^photos/.+\.jpg$~', $path)) {
+        $sm = substr($path, 0, -4) . '-sm.jpg';
+        if (is_file(__DIR__ . '/../' . $sm)) {
+            return url($sm);
+        }
+    }
+    return photo_url($path);
+}
+
 /** Number without trailing zeros: 4.60 -> "4.6", 1154 -> "1,154". */
 function num($n, int $maxDecimals = 2): string
 {

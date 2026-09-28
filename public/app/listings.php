@@ -70,7 +70,7 @@ function card_data(array $l): array
     return [
         'id'        => (int)$l['listing_id'],
         'url'       => listing_url($l),
-        'photo'     => photo_url($l['primary_photo']),
+        'photo'     => thumb_url($l['primary_photo']),
         'make'      => $l['manufacturer'],
         'model'     => $l['title'] !== $l['manufacturer'] . ' ' . $l['model'] ? $l['title'] : $l['model'],
         'category'  => $l['category'],

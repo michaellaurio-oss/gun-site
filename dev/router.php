@@ -18,7 +18,7 @@ if (strpos($path, $base) !== 0) {
 
 $rel = substr($path, strlen($base));
 // Same protection the .htaccess files give on the live server.
-if (preg_match('~^(app|data)(/|$)~', $rel) || preg_match('~(^|/)\.~', $rel)) {
+if (preg_match('~^(app|data)(/|$)~', $rel) || preg_match('~(^|/)[._]~', $rel)) {
     http_response_code(403);
     echo 'Forbidden';
     return true;

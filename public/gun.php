@@ -167,7 +167,7 @@ page_header($fullName, 'inventory', ['description' => $blurb !== '' ? mb_substr(
             <div class="thumbs">
               <?php foreach ($photos as $i => $p): ?>
                 <button type="button" class="thumb" data-index="<?= $i ?>" aria-label="Enlarge photo <?= $i + 1 ?>: <?= e($p['caption'] ?: 'Photo ' . ($i + 1)) ?>"<?= $i === 0 ? ' aria-current="true"' : '' ?>>
-                  <img src="<?= e(photo_url($p['file_path'])) ?>" alt="" loading="lazy">
+                  <img src="<?= e(thumb_url($p["file_path"])) ?>" alt="" loading="lazy">
                 </button>
               <?php endforeach; ?>
             </div>

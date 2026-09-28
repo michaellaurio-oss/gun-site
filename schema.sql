@@ -13,6 +13,7 @@
 PRAGMA foreign_keys = ON;
 -- NULL = not yet verified from a manufacturer or retailer source.
 
+DROP TABLE IF EXISTS login_attempts;
 DROP TABLE IF EXISTS contact_messages;
 DROP TRIGGER IF EXISTS trg_listings_new_offroster_ins;
 DROP TRIGGER IF EXISTS trg_listings_new_offroster_upd;
@@ -188,6 +189,15 @@ CREATE TABLE contact_messages (
 );
 
 CREATE INDEX idx_contact_messages_created ON contact_messages(created_at);
+
+-- Failed admin logins (added by migrations/002_login_attempts.sql)
+CREATE TABLE login_attempts (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    ip_hash       TEXT NOT NULL,
+    attempted_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX idx_login_attempts ON login_attempts(ip_hash, attempted_at);
 
 -- What the website shows: guns currently for sale, with their key specs
 CREATE VIEW listings_public AS

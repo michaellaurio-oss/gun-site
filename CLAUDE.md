@@ -5,8 +5,10 @@ Website for a **California gun shop** selling used and new firearms. Owner: Mich
 ## Hosting, deployment & repo
 
 - **Live URL:** https://the-laurios.com/gun-site — the site lives in a **sub-folder**, so every link, asset path and route must work under the `/gun-site/` base path (no root-relative `/…` URLs that assume the domain root).
-- **Deployment:** FTP to Michael's web host. FTP username and password are in **`.env`** in this folder (`FTP_USER`, `FTP_PASSWORD`; `FTP_HOST` still to be confirmed with Michael). **Never** put credentials in CLAUDE.md, code, commit messages or chat output; `.env` is listed in `.gitignore` — keep it that way.
-- **Implication for the stack:** FTP-only hosting usually means shared hosting (typically PHP; long-running Node/Python servers usually aren't available). Confirm with Michael what the host supports (PHP version, PDO SQLite extension, SSH?). Likely good fits: PHP + SQLite (PDO) served from `/gun-site/`, or a static site generated from the SQLite DB locally and uploaded by FTP. Prefer SFTP/FTPS if the host supports it.
+- **Deployment:** FTP to Michael's web host (FastWebHost shared hosting, Apache, Pure-FTPd). Login is in **`.env`** (`FTP_HOST`, `FTP_USER`, `FTP_PASSWORD`). **Never** put credentials in CLAUDE.md, code, commit messages or chat output; `.env` is in `.gitignore` — keep it that way.
+  - Use **FTPS** (`curl --ssl-reqd`). The certificate is for `svr201.fastwebhost.com` (same IP as `ftp.the-laurios.com`), so connect to that hostname for a verified TLS connection.
+  - As of 2026-09-28 the FTP account's home folder is **not** the web `/gun-site/` folder (a test upload was not reachable on the web). Michael needs to point the FTP account at `public_html/gun-site` (or tell us the path) before deploying. `https://the-laurios.com/gun-site/` exists (empty, Apache directory listing on). PHP version / pdo_sqlite still unverified on the host.
+- **Stack (decided):** PHP 8 + SQLite via PDO, no framework, no build step. `public/` is what gets uploaded to `/gun-site/`.
 - **Git:** Michael created a GitHub repository named **gun-site** (get the exact URL/owner from him). **Decided: the repo is PUBLIC** (a showcase of the work). Commit code, `schema.sql`, designs and a fake `demo_seed.sql` only. Never commit the real inventory: `gun_specs.db`, `seed_inventory.sql`, `inventory_lines.txt`, `inventory_import_review.csv`, `build_inventory.py`, `photos/`, `config.local.php`, `.env`. Check `git ls-files` before every push.
 
 ## What exists in this folder
@@ -23,6 +25,22 @@ Website for a **California gun shop** selling used and new firearms. Owner: Mich
 | `design/*.dc.html` | Page designs (home, inventory, detail) from the Claude Design canvas. They are a proprietary component format (`<x-dc>`, `<sc-for>`, `<sc-if>`, `{{holes}}`, a `DCLogic` class) — use them as **visual/UX reference**, not as code to ship. |
 
 Rebuild the DB: `sqlite3 gun_specs.db < schema.sql && sqlite3 gun_specs.db < seed_inventory.sql` (delete the .db first).
+
+### Website code (built 2026-09-28)
+
+| Path | |
+|---|---|
+| `public/` | Deployed to `/gun-site/`: `index.php` (home), `inventory.php`, `gun.php?stock=…` (or `?id=` for coming-soon without stock #), `contact.php`, `how-to-buy.php`, `about.php`. |
+| `public/app/` | Includes (blocked by `.htaccess`): `bootstrap.php`, `config.php` (+ untracked `config.local.php` for admin password hash, contact email, debug), `shop.php` (shop name/phone/etc. placeholders), `helpers.php`, `listings.php` (public queries — only via `listings_public`), `layout.php` (header/footer/card), `security.php` (session, CSRF), `photos.php` (upload/resize). |
+| `public/admin/` | Password-protected admin: listings (search, status filter, bulk status), listing editor + photo upload (browser resizes to 2400px; server re-encodes, strips EXIF, makes `-sm.jpg` thumbnails), models editor, contact messages. |
+| `public/data/gun_specs.db` | The database the site uses (blocked by `.htaccess`, not in git). **On the server this is the live copy — never overwrite it on deploy.** |
+| `public/photos/<STOCK#>/` | Uploaded listing photos (not in git). |
+| `public/assets/` | `css/site.css`, `css/admin.css`, `js/site.js`, `js/inventory.js` (client-side facets over embedded JSON), `js/detail.js`, `js/admin.js`, `demo/*.jpg` (demo photos). |
+| `demo_seed.sql` | Fake sample listings for the public repo / local dev. |
+| `migrations/NNN_*.sql` | Changes to apply to the live DB; also folded into `schema.sql`. |
+| `dev/` | `build_db.php [demo|real]` → `public/data/gun_specs.db`; `router.php` (local server mimicking `/gun-site/`); `make_demo_photos.php`. |
+
+Run locally: `php dev/build_db.php demo` then `php -S localhost:8000 dev/router.php` → http://localhost:8000/gun-site/ (admin: `/gun-site/admin/`). PHP 8.3 is installed via winget (`php.ini` in the WinGet package folder has pdo_sqlite, gd, exif, fileinfo, mbstring enabled). The PHP dev server is single-connection: don't load several pages in parallel (iframes) from headless Edge — it deadlocks.
 
 Live design canvas (Michael can open it): https://claude.ai/artifact/JqAcntVHJ5BSvKjtwojMf4
 
@@ -79,9 +97,9 @@ Public badge colours + hover-tooltip text (tooltip on hover AND keyboard focus):
 
 ## Open items / next steps
 
-1. **Pick the stack & hosting.** SQLite needs a server (or build-time static generation). Options: small server (Python/Flask/FastAPI or Node/Express) reading SQLite; or a static site generator that reads SQLite at build time and redeploys when inventory changes. Choose based on where Michael will host.
-2. Build the three pages from the designs, plus: How to buy, About/Contact (contact form for "Ask about this gun"), mobile layouts.
-3. An easy way for Michael to add/edit listings, set status, and upload photos (admin page, or editing via a DB tool like DB Browser for SQLite).
+1. ~~Stack~~ (PHP + SQLite), ~~public pages~~, ~~admin~~: done. **Next: deploy** — fix the FTP account's folder (see Hosting), probe the host's PHP (version, pdo_sqlite, SQLite ≥ 3.31 for generated columns, gd, upload limits, `.user.ini` support, `mail()`), write `deploy/deploy.ps1` (FTPS upload of `public/` minus `data/`, `photos/`, `config.local.php`; `-Backup` pulls live DB + photos into `backups/`), first deploy uploads the real DB (`php dev/build_db.php real`) once, and create `config.local.php` on the server with the admin password hash.
+2. Consignment: admin has a checkbox; not shown publicly (still undecided with Michael).
+3. How to buy page states general CA steps (FSC, DROS, 10-day wait, handgun residency + safe-handling demo) — Michael to confirm wording.
 4. **Data cleanup:** 147 models have a **placeholder caliber** (flagged in `data_notes`) — set real calibers per gun (may need caliber/barrel per listing rather than per model for variable models like Colt SAA, Winchester 94, Remington 870). 10 inventory lines couldn't be identified (see CSV). 84 antiques/collectibles/military surplus were set aside on purpose — Michael will decide later.
 5. Research detailed specs (barrel, length, height, width, weights, trigger pull, twist) for imported models, in batches, with `source_url` and `data_notes` for each.
 6. Set `ca_rostered` for every handgun model from the CA DOJ roster (and re-check periodically; models get added and dropped). Home page copy ("Used guns, fully specified.") predates new-gun sales — revisit.
