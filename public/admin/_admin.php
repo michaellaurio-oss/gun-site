@@ -91,14 +91,14 @@ function friendly_db_error(Throwable $e): string
         return 'A stock number is required once a listing is past Draft / Coming soon.';
     }
     if (stripos($m, 'UNIQUE constraint failed: firearms.slug') !== false) {
-        return 'Another model already uses that URL name (slug).';
+        return 'Another firearm already uses that URL name (slug).';
     }
     return $m;
 }
 
 function admin_header(string $title, string $active = ''): void
 {
-    $nav = ['listings' => ['Listings', url('admin/')], 'models' => ['Models', url('admin/models.php')],
+    $nav = ['listings' => ['Listings', url('admin/')], 'models' => ['Firearms', url('admin/models.php')],
             'messages' => ['Messages', url('admin/messages.php')]];
     $unread = 0;
     try {

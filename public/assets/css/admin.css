@@ -77,3 +77,10 @@
 .msg-actions { display: flex; align-items: center; gap: 16px; }
 .msg-actions form { margin: 0; }
 .msg-actions .btn { min-height: 40px; padding: 0 14px; font-size: 14px; }
+
+/* Firearm picker on the listing editor */
+.firearm-picker .fsearch { margin-bottom: 0; }
+.firearm-picker .fsearch input { font-size: 16px; }
+.picker-add { margin: 2px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 14px; color: var(--text-3); }
+.picker-empty { margin: 0; font-size: 14px; }
+.btn-sm { min-height: 40px; padding: 0 14px; font-size: 14px; }

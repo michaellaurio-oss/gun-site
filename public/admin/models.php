@@ -35,13 +35,13 @@ $stat = db()->query("SELECT COUNT(*) total,
     SUM(barrel_length_in IS NULL AND weight_oz IS NULL) nospecs FROM firearms")->fetch();
 $link = fn($s) => url('admin/models.php', ['show' => $s, 'q' => $q]);
 
-admin_header('Models', 'models');
+admin_header('Firearms', 'models');
 ?>
 <div class="admin-head">
-  <h1 class="page-title">Models</h1>
-  <a class="btn btn-accent" href="<?= e(url('admin/model.php')) ?>">+ Add model</a>
+  <h1 class="page-title">Firearms</h1>
+  <a class="btn btn-accent" href="<?= e(url('admin/model.php')) ?>">+ Add firearm</a>
 </div>
-<p class="muted">One row per make/model: specs, caliber, description and CA roster status shared by every listing of that model.</p>
+<p class="muted">One row per make and model: specs, caliber, description and CA roster status, shared by every listing of that firearm.</p>
 
 <div class="status-pills">
   <a href="<?= e($link('')) ?>"<?= $show === '' ? ' aria-current="true"' : '' ?>>All <span><?= (int)$stat['total'] ?></span></a>
@@ -59,7 +59,7 @@ admin_header('Models', 'models');
 
 <div class="table-wrap">
 <table class="admin-table">
-  <thead><tr><th scope="col">Model</th><th scope="col">Type</th><th scope="col">Caliber</th><th scope="col">CA roster</th><th scope="col">Specs</th><th scope="col">Listings</th></tr></thead>
+  <thead><tr><th scope="col">Firearm</th><th scope="col">Type</th><th scope="col">Caliber</th><th scope="col">CA roster</th><th scope="col">Specs</th><th scope="col">Listings</th></tr></thead>
   <tbody>
   <?php foreach ($rows as $r): ?>
     <tr>
@@ -68,10 +68,10 @@ admin_header('Models', 'models');
       <td><?= e($r['caliber'] ?? '') ?><?= $r['placeholder'] ? ' <span class="st st-on_hold">confirm</span>' : '' ?></td>
       <td><?= $r['category'] !== 'handgun' ? '<span class="muted">n/a</span>' : ($r['ca_rostered'] === null ? '<span class="st st-draft">not checked</span>' : ((int)$r['ca_rostered'] ? 'On roster' : 'Off roster')) ?></td>
       <td><?= $r['barrel_length_in'] !== null || $r['weight_oz'] !== null ? 'Yes' : '<span class="muted">—</span>' ?></td>
-      <td class="mono"><a href="<?= e(url('admin/listing.php', ['firearm_id' => $r['id']])) ?>" title="Add a listing for this model">+</a> <?= (int)$r['listings'] ?></td>
+      <td class="mono"><a href="<?= e(url('admin/listing.php', ['firearm_id' => $r['id']])) ?>" title="Add a listing for this firearm">+</a> <?= (int)$r['listings'] ?></td>
     </tr>
   <?php endforeach; ?>
-  <?php if (!$rows): ?><tr><td colspan="6" class="muted" style="padding:24px">No models match.</td></tr><?php endif; ?>
+  <?php if (!$rows): ?><tr><td colspan="6" class="muted" style="padding:24px">No firearms match.</td></tr><?php endif; ?>
   </tbody>
 </table>
 </div>

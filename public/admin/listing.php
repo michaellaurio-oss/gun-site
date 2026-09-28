@@ -173,6 +173,14 @@ unset($_SESSION['form']);
 $val = fn(string $k) => e($v[$k] ?? '');
 
 $models = $db->query("SELECT id, manufacturer, model, category, caliber, data_notes LIKE '%Caliber is a placeholder%' AS placeholder FROM firearms ORDER BY manufacturer COLLATE NOCASE, model COLLATE NOCASE")->fetchAll();
+
+// Coming back from "Add a new firearm": pre-select the firearm that was just created.
+$picked = (int)($_GET['firearm_id'] ?? 0);
+$pickedChanged = false;
+if ($picked && in_array($picked, array_map('intval', array_column($models, 'id')), true)) {
+    $pickedChanged = $listing && $picked !== (int)$listing['firearm_id'];
+    $v['firearm_id'] = $picked;
+}
 $photos = [];
 if ($listing) {
     $st = $db->prepare('SELECT * FROM listing_photos WHERE listing_id = ? ORDER BY sort_order, id');
@@ -210,10 +218,16 @@ admin_header($heading, 'listings');
   <fieldset>
     <legend>The gun</legend>
     <div class="grid-2">
-      <div class="field span-2">
-        <label for="firearm_id">Model</label>
+      <div class="field span-2 firearm-picker">
+        <label for="firearm_id">Firearm</label>
+        <?php if ($pickedChanged): ?><div class="alert alert-ok" role="status">Firearm changed. Click <strong>Save changes</strong> to keep it.</div><?php endif; ?>
+        <div class="fsearch" hidden data-firearm-search>
+          <?= icon('search', 16) ?>
+          <label for="firearm-search" class="sr-only">Search firearms</label>
+          <input id="firearm-search" type="search" placeholder="Type make or model to find it, e.g. glock 19" autocomplete="off">
+        </div>
         <select class="select" id="firearm_id" name="firearm_id" required>
-          <option value="">Choose a model…</option>
+          <option value="">Choose a firearm…</option>
           <?php $mf = null;
           foreach ($models as $m):
               if ($m['manufacturer'] !== $mf) {
@@ -221,13 +235,18 @@ admin_header($heading, 'listings');
                   $mf = $m['manufacturer'];
               }
               echo '<option value="' . (int)$m['id'] . '"' . ((int)$m['id'] === (int)($v['firearm_id'] ?? 0) ? ' selected' : '') . '>'
-                  . e($m['manufacturer'] . ' ' . $m['model'] . ' — ' . ($m['caliber'] ?? '?') . ($m['placeholder'] ? ' (caliber not confirmed)' : '')) . '</option>';
+                  . e($m['manufacturer'] . ' ' . $m['model'] . ' — ' . ($m['caliber'] ?? 'caliber not set') . ($m['placeholder'] ? ' (caliber not confirmed)' : '')) . '</option>';
           endforeach;
           echo $mf !== null ? '</optgroup>' : ''; ?>
         </select>
-        <span class="hint">Specs, caliber and CA roster status come from the model.
-          <?php if (!empty($v['firearm_id'])): ?><a href="<?= e(url('admin/model.php', ['id' => $v['firearm_id']])) ?>">Edit this model</a> ·<?php endif; ?>
-          <a href="<?= e(url('admin/model.php')) ?>">Add a new model</a></span>
+        <p class="picker-empty muted" hidden data-firearm-none>No firearm matches that search.</p>
+        <p class="picker-add">Not on the list?
+          <a class="btn btn-outline btn-sm" data-add-firearm
+             href="<?= e(url('admin/model.php', ['return' => 'listing', 'listing' => $id ?: null])) ?>"
+             data-base="<?= e(url('admin/model.php', ['return' => 'listing', 'listing' => $id ?: null])) ?>">+ Add a new firearm</a></p>
+        <span class="hint">Specs, caliber and CA roster status come from the firearm.
+          <?php if (!empty($v['firearm_id'])): ?><a href="<?= e(url('admin/model.php', ['id' => $v['firearm_id']])) ?>">Edit this firearm</a><?php endif; ?>
+          <?php if ($listing): ?> Adding a new firearm leaves this page, so save any other changes first.<?php endif; ?></span>
       </div>
       <div class="field">
         <label for="stock_number">Stock #</label>

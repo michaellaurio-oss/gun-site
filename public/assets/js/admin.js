@@ -11,6 +11,52 @@
     });
   }
 
+  // ---- Firearm picker: type to narrow the list; "Add a new firearm" carries the search text ----
+  var pick = document.getElementById('firearm_id');
+  var searchWrap = document.querySelector('[data-firearm-search]');
+  if (pick && searchWrap) {
+    var search = document.getElementById('firearm-search');
+    var none = document.querySelector('[data-firearm-none]');
+    var addLink = document.querySelector('[data-add-firearm]');
+    var firearms = [];
+    Array.prototype.forEach.call(pick.querySelectorAll('optgroup'), function (g) {
+      Array.prototype.forEach.call(g.children, function (o) { firearms.push({ group: g.label, value: o.value, text: o.textContent }); });
+    });
+    searchWrap.hidden = false;
+
+    var rebuild = function () {
+      var words = search.value.toLowerCase().split(/\s+/).filter(Boolean);
+      var keep = pick.value;
+      // Ignore spaces and punctuation on both sides, so "sp01" finds "SP-01" and "1022" finds "10/22".
+      var compact = function (s) { return s.toLowerCase().replace(/[^a-z0-9]/g, ''); };
+      var matches = firearms.filter(function (o) {
+        var hay = compact(o.text);
+        return words.every(function (w) { return hay.indexOf(compact(w)) >= 0; });
+      });
+      pick.innerHTML = '';
+      var ph = document.createElement('option');
+      ph.value = '';
+      ph.textContent = words.length ? (matches.length ? matches.length + ' match' + (matches.length === 1 ? '' : 'es') + '…' : 'No matches') : 'Choose a firearm…';
+      pick.appendChild(ph);
+      var group = null, el = null;
+      matches.forEach(function (o) {
+        if (o.group !== group) { el = document.createElement('optgroup'); el.label = o.group; pick.appendChild(el); group = o.group; }
+        var opt = document.createElement('option');
+        opt.value = o.value; opt.textContent = o.text;
+        el.appendChild(opt);
+      });
+      var stillThere = matches.some(function (o) { return o.value === keep; });
+      pick.value = stillThere ? keep : (words.length && matches.length ? matches[0].value : '');
+      none.hidden = !(words.length && !matches.length);
+      if (addLink) {
+        var base = addLink.getAttribute('data-base');
+        addLink.href = search.value.trim() ? base + (base.indexOf('?') >= 0 ? '&' : '?') + 'q=' + encodeURIComponent(search.value.trim()) : base;
+      }
+    };
+    search.addEventListener('input', rebuild);
+    search.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); pick.focus(); } });
+  }
+
   var form = document.querySelector('form[data-resize]');
   if (!form) return;
   var input = form.querySelector('input[type=file]');
