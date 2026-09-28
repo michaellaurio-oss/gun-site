@@ -292,9 +292,19 @@ textarea.input { padding: 10px 12px; min-height: 140px; resize: vertical; line-h
 .no-js .tabpanel[hidden] { display: block; }
 .photo-main { position: relative; width: 100%; aspect-ratio: 4 / 3; max-height: 520px; padding: 0; border: 0; border-radius: var(--r-hero); background: var(--photo); overflow: hidden; cursor: zoom-in; display: flex; align-items: center; justify-content: center; }
 .photo-main img { width: 100%; height: 100%; object-fit: contain; }
-.enlarge-hint { position: absolute; right: 14px; bottom: 14px; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: rgba(22,24,26,.78); color: #fff; font-size: 13px; font-weight: 500; }
+.photo-stage { position: relative; }
+/* Left/right thirds of the main photo step through photos; the middle enlarges. */
+.photo-nav { position: absolute; top: 0; bottom: 0; width: 28%; display: flex; align-items: center; padding: 0 14px; border: 0; background: transparent; color: #fff; cursor: pointer; }
+.photo-nav.prev { left: 0; justify-content: flex-start; border-radius: var(--r-hero) 0 0 var(--r-hero); cursor: w-resize; }
+.photo-nav.next { right: 0; justify-content: flex-end; border-radius: 0 var(--r-hero) var(--r-hero) 0; cursor: e-resize; }
+.photo-nav span { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 999px; background: rgba(22,24,26,.62); opacity: 0; transition: opacity .15s; }
+.photo-stage:hover .photo-nav span, .photo-nav:focus-visible span { opacity: 1; }
+.photo-nav:hover span { background: rgba(22,24,26,.85); }
+.photo-nav:focus-visible { outline-offset: -3px; }
+@media (hover: none) { .photo-nav span { opacity: .85; } }
+.enlarge-hint { position: absolute; left: 50%; transform: translateX(-50%); bottom: 14px; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: rgba(22,24,26,.78); color: #fff; font-size: 13px; font-weight: 500; }
 .thumbs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
-.thumb { aspect-ratio: 4 / 3; padding: 0; border-radius: 10px; border: 1px solid var(--border); background: var(--photo); overflow: hidden; cursor: zoom-in; }
+.thumb { aspect-ratio: 4 / 3; padding: 0; border-radius: 10px; border: 1px solid var(--border); background: var(--photo); overflow: hidden; cursor: pointer; }
 .thumb[aria-current="true"] { border: 2px solid var(--ink); }
 .thumb img { width: 100%; height: 100%; object-fit: cover; }
 .no-photos { aspect-ratio: 4 / 3; max-height: 460px; width: 100%; border-radius: var(--r-hero); }

@@ -159,14 +159,21 @@ page_header($fullName, 'inventory', ['description' => $blurb !== '' ? mb_substr(
       <div class="tabpanel" role="tabpanel" id="panel-photos" aria-labelledby="tab-photos" tabindex="0">
         <?php if ($photos): ?>
           <?php $first = $photos[0]; ?>
-          <button type="button" class="photo-main" id="photo-main" data-index="0" aria-label="Enlarge photo: <?= e($first['caption'] ?: 'Photo 1') ?>">
-            <img src="<?= e(photo_url($first['file_path'])) ?>" alt="<?= e($fullName . ($first['caption'] ? ' – ' . $first['caption'] : '')) ?>">
-            <span class="enlarge-hint"><?= icon('zoom', 14) ?>Click to enlarge</span>
-          </button>
+          <div class="photo-stage">
+            <button type="button" class="photo-main" id="photo-main" data-index="0" aria-label="Enlarge photo: <?= e($first['caption'] ?: 'Photo 1') ?>">
+              <img src="<?= e(photo_url($first['file_path'])) ?>" alt="<?= e($fullName . ($first['caption'] ? ' – ' . $first['caption'] : '')) ?>">
+              <span class="enlarge-hint"><?= icon('zoom', 14) ?>Click to enlarge</span>
+            </button>
+            <?php if (count($photos) > 1): ?>
+              <button type="button" class="photo-nav prev" id="photo-prev" aria-label="Previous photo"><span><?= icon('prev', 22) ?></span></button>
+              <button type="button" class="photo-nav next" id="photo-next" aria-label="Next photo"><span><?= icon('next', 22) ?></span></button>
+              <p class="sr-only" aria-live="polite" id="photo-live"></p>
+            <?php endif; ?>
+          </div>
           <?php if (count($photos) > 1): ?>
             <div class="thumbs">
               <?php foreach ($photos as $i => $p): ?>
-                <button type="button" class="thumb" data-index="<?= $i ?>" aria-label="Enlarge photo <?= $i + 1 ?>: <?= e($p['caption'] ?: 'Photo ' . ($i + 1)) ?>"<?= $i === 0 ? ' aria-current="true"' : '' ?>>
+                <button type="button" class="thumb" data-index="<?= $i ?>" aria-label="Show photo <?= $i + 1 ?>: <?= e($p['caption'] ?: 'Photo ' . ($i + 1)) ?>"<?= $i === 0 ? ' aria-current="true"' : '' ?>>
                   <img src="<?= e(thumb_url($p["file_path"])) ?>" alt="" loading="lazy">
                 </button>
               <?php endforeach; ?>

@@ -45,6 +45,7 @@
   function setMain(i) {
     current = i;
     mainImg.src = photos[i].src;
+    mainImg.alt = label(i);
     main.setAttribute('data-index', i);
     main.setAttribute('aria-label', 'Enlarge photo: ' + label(i));
     thumbs.forEach(function (t, k) {
@@ -73,10 +74,23 @@
     if (typeof viewer.close === 'function') viewer.close(); else viewer.removeAttribute('open');
   }
 
+  // Left/right sides of the main photo: step through photos without opening the viewer.
+  var inlineLive = document.getElementById('photo-live');
+  function step(d) {
+    var n = photos.length;
+    setMain((current + d + n) % n);
+    if (inlineLive) inlineLive.textContent = label(current) + ', photo ' + (current + 1) + ' of ' + n;
+  }
+  var prevBtn = document.getElementById('photo-prev');
+  var nextBtn = document.getElementById('photo-next');
+  if (prevBtn) prevBtn.addEventListener('click', function () { step(-1); });
+  if (nextBtn) nextBtn.addEventListener('click', function () { step(1); });
+
   viewer.addEventListener('close', function () { if (opener) opener.focus(); });
   main.addEventListener('click', function () { open(current, main); });
+  // Thumbnails switch the large photo; only the centre of the large photo opens the viewer.
   thumbs.forEach(function (t, k) {
-    t.addEventListener('click', function () { open(k, t); });
+    t.addEventListener('click', function () { step(k - current); });
   });
   document.getElementById('viewer-close').addEventListener('click', close);
   document.getElementById('viewer-prev').addEventListener('click', function () { show(current - 1); });
