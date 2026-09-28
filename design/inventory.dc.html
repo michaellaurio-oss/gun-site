@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Inventory – used firearms</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'IBM Plex Sans',system-ui,sans-serif;color:#16181a;background:#f7f6f3}
+a{color:#16181a;text-decoration:none}a:hover{color:#8f3f12}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+</style>
+</helmet>
+<div style="width: 1440px; height: 2440px; box-sizing: border-box; display: flex; flex-direction: column; background: #f7f6f3; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #16181a;">
+
+<!-- Header -->
+<header style="display: flex; align-items: center; gap: 48px; height: 84px; flex-shrink: 0; padding: 0 120px; border-bottom: 1px solid #e3e1dc; background: #ffffff;">
+<a href="Main.dc.html" style="font-family: 'Archivo', sans-serif; font-weight: 800; font-size: 22px; letter-spacing: -0.02em;">[Shop Name]</a>
+<nav aria-label="Main" style="display: flex; gap: 32px; font-size: 15px; font-weight: 500;">
+<a href="Inventory.dc.html" aria-current="page" style="color: {{accent}};">Inventory</a>
+<a href="#">Handguns</a>
+<a href="#">Rifles</a>
+<a href="#">Shotguns</a>
+<a href="#">How to buy</a>
+<a href="#">About</a>
+</nav>
+<form role="search" style="margin-left: auto; display: flex; align-items: center; gap: 8px; width: 300px; height: 44px; box-sizing: border-box; padding: 0 14px; border: 1px solid #d6d3cc; border-radius: 8px; background: #f7f6f3;">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5a5e63" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+<label for="inv-search" class="sr-only">Search inventory</label>
+<input id="inv-search" type="search" placeholder="Search make, model, caliber" style="flex-grow: 1; border: 0; background: transparent; font: inherit; font-size: 14px; color: #16181a; outline: none;">
+</form>
+</header>
+
+<!-- Title row -->
+<section style="padding: 48px 120px 28px; display: flex; align-items: flex-end; justify-content: space-between;">
+<div>
+<div style="font-size: 14px; color: #5a5e63;"><a href="Main.dc.html" style="color: #5a5e63;">Home</a> / Inventory</div>
+<h1 style="margin: 10px 0 0; font-family: 'Archivo', sans-serif; font-weight: 800; font-size: 52px; letter-spacing: -0.03em;">Inventory</h1>
+<p style="margin: 8px 0 0; font-size: 16px; color: #5a5e63;">{{listedText}}</p>
+</div>
+<div style="display: flex; align-items: center; gap: 24px;">
+<div style="display: flex; align-items: center; gap: 10px;">
+<label for="perpage" style="font-size: 14px; color: #5a5e63;">Show</label>
+<select id="perpage" value="{{perPageStr}}" onChange="{{setPerPage}}" style="height: 44px; padding: 0 12px; border: 1px solid #d6d3cc; border-radius: 8px; background: #ffffff; font: inherit; font-size: 14px; color: #16181a;">
+<option value="12">12 per page</option>
+<option value="24">24 per page</option>
+<option value="48">48 per page</option>
+<option value="96">96 per page</option>
+</select>
+</div>
+<div style="display: flex; align-items: center; gap: 10px;">
+<label for="sort" style="font-size: 14px; color: #5a5e63;">Sort by</label>
+<select id="sort" style="height: 44px; padding: 0 12px; border: 1px solid #d6d3cc; border-radius: 8px; background: #ffffff; font: inherit; font-size: 14px; color: #16181a;">
+<option>Newest listed</option>
+<option>Price: low to high</option>
+<option>Price: high to low</option>
+<option>Make A–Z</option>
+</select>
+</div>
+</div>
+</section>
+
+<!-- Body: filters + grid -->
+<div style="display: flex; gap: 40px; padding: 0 120px; flex-grow: 1; align-items: flex-start;">
+
+<aside aria-label="Filters" style="width: 260px; flex-shrink: 0; display: flex; flex-direction: column; font-size: 15px;">
+<div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid #d6d3cc;">
+<div style="font-family: 'Archivo', sans-serif; font-weight: 700; font-size: 18px;">Filters</div>
+<button type="button" onClick="{{clearAll}}" style="height: 32px; padding: 0; border: 0; background: transparent; font: inherit; font-size: 14px; color: #5a5e63; text-decoration: underline; cursor: pointer;">Clear all</button>
+</div>
+
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="6">
+<div style="border-bottom: 1px solid #e3e1dc;">
+<button type="button" onClick="{{g.toggle}}" aria-expanded="{{g.open}}" aria-controls="{{g.panelId}}" style="width: 100%; height: 52px; display: flex; align-items: center; gap: 8px; padding: 0; border: 0; background: transparent; font: inherit; font-size: 15px; font-weight: 600; color: #16181a; cursor: pointer; text-align: left;">
+<span style="flex-grow: 1;">{{g.label}}</span>
+<sc-if value="{{g.hasSelected}}" hint-placeholder-val="{{ false }}">
+<span style="min-width: 22px; height: 22px; padding: 0 6px; box-sizing: border-box; border-radius: 999px; background: #16181a; color: #ffffff; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center;">{{g.selectedCount}}</span>
+</sc-if>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5a5e63" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="transform: {{g.chevron}};"><path d="M6 9l6 6 6-6"></path></svg>
+</button>
+<sc-if value="{{g.open}}" hint-placeholder-val="{{ true }}">
+<div id="{{g.panelId}}" style="display: flex; flex-direction: column; gap: 10px; padding: 2px 0 18px;">
+
+<sc-if value="{{g.isPrice}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; align-items: center; gap: 8px;">
+<label for="pmin" class="sr-only">Minimum price</label>
+<input id="pmin" type="text" placeholder="$ Min" style="width: 100%; min-width: 0; height: 44px; box-sizing: border-box; padding: 0 12px; border: 1px solid #d6d3cc; border-radius: 8px; background: #ffffff; font: inherit; font-size: 14px;">
+<span style="color: #6b6f74;">–</span>
+<label for="pmax" class="sr-only">Maximum price</label>
+<input id="pmax" type="text" placeholder="$ Max" style="width: 100%; min-width: 0; height: 44px; box-sizing: border-box; padding: 0 12px; border: 1px solid #d6d3cc; border-radius: 8px; background: #ffffff; font: inherit; font-size: 14px;">
+</div>
+</sc-if>
+
+<sc-if value="{{g.searchable}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; align-items: center; gap: 8px; height: 40px; box-sizing: border-box; padding: 0 12px; border: 1px solid #d6d3cc; border-radius: 8px; background: #ffffff;">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b6f74" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+<label for="{{g.searchId}}" class="sr-only">{{g.searchLabel}}</label>
+<input id="{{g.searchId}}" type="text" value="{{g.query}}" onChange="{{g.onSearch}}" placeholder="{{g.searchLabel}}" style="flex-grow: 1; min-width: 0; border: 0; background: transparent; font: inherit; font-size: 14px; color: #16181a; outline: none;">
+</div>
+</sc-if>
+
+<sc-for list="{{g.options}}" as="o" hint-placeholder-count="4">
+<label style="display: flex; align-items: center; gap: 10px; min-height: 28px; cursor: pointer;">
+<input type="checkbox" checked="{{o.checked}}" onChange="{{o.toggle}}" style="width: 18px; height: 18px; flex-shrink: 0; accent-color: #16181a;">
+<span style="flex-grow: 1;">{{o.label}}</span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #6b6f74;">{{o.count}}</span>
+</label>
+</sc-for>
+
+<sc-if value="{{g.noMatches}}" hint-placeholder-val="{{ false }}">
+<div style="font-size: 14px; color: #6b6f74;">No matches</div>
+</sc-if>
+
+<sc-if value="{{g.hasMore}}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{g.toggleMore}}" style="align-self: flex-start; height: 32px; padding: 0; border: 0; background: transparent; font: inherit; font-size: 14px; font-weight: 600; color: {{accent}}; cursor: pointer;">{{g.moreLabel}}</button>
+</sc-if>
+</div>
+</sc-if>
+</div>
+</sc-for>
+
+<label style="display: flex; align-items: center; gap: 10px; padding-top: 20px; line-height: 1.4; cursor: pointer;"><input type="checkbox" checked="{{includeOther}}" onChange="{{toggleInclude}}" style="width: 18px; height: 18px; flex-shrink: 0; accent-color: #16181a;"> Include on hold, pending &amp; coming soon</label>
+</aside>
+
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 20px;">
+
+<!-- Active filter tags -->
+<sc-if value="{{hasChips}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+<span style="font-size: 14px; color: #5a5e63; margin-right: 4px;">Filtered by:</span>
+<sc-for list="{{chips}}" as="c" hint-placeholder-count="2">
+<button type="button" onClick="{{c.remove}}" aria-label="Remove filter {{c.label}}" style="display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px 0 14px; border: 1px solid #c9c5bc; border-radius: 999px; background: #ffffff; font: inherit; font-size: 14px; color: #16181a; cursor: pointer;">{{c.label}}
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</sc-for>
+<button type="button" onClick="{{clearAll}}" style="height: 34px; padding: 0 6px; border: 0; background: transparent; font: inherit; font-size: 14px; color: #5a5e63; text-decoration: underline; cursor: pointer;">Clear all</button>
+</div>
+</sc-if>
+
+<sc-if value="{{noResults}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 64px 24px; border: 1px dashed #c9c5bc; border-radius: 12px; text-align: center; color: #5a5e63; font-size: 16px;">No guns match these filters. Try removing one.</div>
+</sc-if>
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px;">
+<sc-for list="{{cards}}" as="g" hint-placeholder-count="12">
+<a href="Detail.dc.html" style="display: flex; flex-direction: column; border-radius: 12px; background: #ffffff; border: 1px solid #e3e1dc; overflow: hidden;">
+<div style="position: relative; height: 200px; background: #ebe8e2; display: flex; align-items: center; justify-content: center; color: #6b6f74; font-size: 13px;">
+[Photo of this gun]
+<span style="position: absolute; top: 12px; left: 12px; padding: 4px 10px; border-radius: 999px; background: #ffffff; font-size: 12px; font-weight: 600; color: #16181a;">{{g.typeLabel}}</span>
+<sc-if value="{{g.showStatus}}" hint-placeholder-val="{{ false }}">
+<span style="position: absolute; top: 12px; right: 12px; padding: 4px 10px; border-radius: 999px; background: {{g.statusBg}}; color: {{g.statusFg}}; font-size: 12px; font-weight: 600;">{{g.statusLabel}}</span>
+</sc-if>
+</div>
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 16px 18px 18px; flex-grow: 1;">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
+<div style="min-width: 0;">
+<div style="font-size: 13px; color: #5a5e63;">{{g.make}}</div>
+<div style="margin-top: 2px; font-family: 'Archivo', sans-serif; font-weight: 700; font-size: 19px; letter-spacing: -0.01em;">{{g.model}}</div>
+</div>
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #6b6f74; white-space: nowrap;">{{g.stock}}</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; font-size: 13px;">
+<div><div style="color: #6b6f74;">Caliber</div><div style="font-family: 'IBM Plex Mono', monospace; font-weight: 500;">{{g.caliber}}</div></div>
+<div><div style="color: #6b6f74;">Capacity</div><div style="font-family: 'IBM Plex Mono', monospace; font-weight: 500;">{{g.capacity}}</div><sc-if value="{{g.overTen}}" hint-placeholder-val="{{ false }}"><div style="margin-top: 1px; font-size: 11px; line-height: 1.3; color: #6b6f74;">(10 round limit in CA)</div></sc-if></div>
+<sc-if value="{{g.hasSpecs}}" hint-placeholder-val="{{ false }}">
+<div><div style="color: #6b6f74;">Barrel</div><div style="font-family: 'IBM Plex Mono', monospace; font-weight: 500;">{{g.barrel}}</div></div>
+<div><div style="color: #6b6f74;">Weight</div><div style="font-family: 'IBM Plex Mono', monospace; font-weight: 500;">{{g.weight}}</div></div>
+</sc-if>
+</div>
+<div style="margin-top: auto; padding-top: 12px; border-top: 1px solid #eeece7; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+<div style="display: flex; gap: 6px; flex-wrap: wrap;">
+<sc-if value="{{g.isNew}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 12px; padding: 3px 8px; border-radius: 6px; background: #16181a; color: #ffffff; font-weight: 600;">New</span>
+</sc-if>
+<sc-if value="{{g.isUsed}}" hint-placeholder-val="{{ true }}">
+<span style="font-size: 12px; padding: 3px 8px; border-radius: 6px; background: #f1efea; color: #43474c;">Used · {{g.condition}}</span>
+</sc-if>
+<sc-if value="{{g.onRoster}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 12px; padding: 3px 8px; border-radius: 6px; background: #e4efe9; color: #1f5a40;">CA Roster</span>
+</sc-if>
+<sc-if value="{{g.offRoster}}" hint-placeholder-val="{{ false }}">
+<span style="position: relative; display: inline-flex;">
+<span onMouseEnter="{{g.showTip}}" onMouseLeave="{{g.hideTip}}" title="Not on current CA handgun roster" style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 3px 8px; border-radius: 6px; background: #f1efea; color: #43474c; cursor: help;">Off roster
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg></span>
+<sc-if value="{{g.tipOpen}}" hint-placeholder-val="{{ false }}">
+<span role="tooltip" style="position: absolute; bottom: calc(100% + 8px); left: 0; z-index: 5; width: 200px; padding: 10px 12px; border-radius: 8px; background: #16181a; color: #ffffff; font-size: 13px; line-height: 1.45; box-shadow: 0 8px 24px rgba(0,0,0,0.18);">Not on current CA handgun roster</span>
+</sc-if>
+</span>
+</sc-if>
+<sc-if value="{{g.modified}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 12px; padding: 3px 8px; border-radius: 6px; background: #f1efea; color: #43474c;">Modified</span>
+</sc-if>
+</div>
+<span style="font-family: 'Archivo', sans-serif; font-weight: 700; font-size: 21px;">[Price]</span>
+</div>
+</div>
+</a>
+</sc-for>
+</div>
+
+<!-- Pagination -->
+<nav aria-label="Pages" style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px; padding-top: 24px; border-top: 1px solid #e3e1dc;">
+<div style="display: flex; align-items: center; gap: 20px;">
+<div style="font-size: 14px; color: #5a5e63;">{{showingText}}</div>
+<div style="display: flex; align-items: center; gap: 8px;">
+<label for="perpage-bottom" style="font-size: 14px; color: #5a5e63;">Show</label>
+<select id="perpage-bottom" value="{{perPageStr}}" onChange="{{setPerPage}}" style="height: 44px; padding: 0 12px; border: 1px solid #d6d3cc; border-radius: 8px; background: #ffffff; font: inherit; font-size: 14px; color: #16181a;">
+<option value="12">12 per page</option>
+<option value="24">24 per page</option>
+<option value="48">48 per page</option>
+<option value="96">96 per page</option>
+</select>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 6px;">
+<button type="button" onClick="{{prevPage}}" disabled="{{prevDisabled}}" aria-label="Previous page" style="display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 8px; border: 1px solid #e3e1dc; background: #ffffff; color: #16181a; cursor: pointer;">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+<sc-for list="{{pageButtons}}" as="p" hint-placeholder-count="3">
+<sc-if value="{{p.current}}" hint-placeholder-val="{{ false }}">
+<button type="button" aria-current="page" style="width: 44px; height: 44px; border-radius: 8px; border: 0; background: #16181a; color: #ffffff; font: inherit; font-weight: 600; font-size: 15px;">{{p.n}}</button>
+</sc-if>
+<sc-if value="{{p.other}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{p.go}}" style="width: 44px; height: 44px; border-radius: 8px; border: 1px solid #e3e1dc; background: #ffffff; font: inherit; font-size: 15px; color: #16181a; cursor: pointer;">{{p.n}}</button>
+</sc-if>
+</sc-for>
+<button type="button" onClick="{{nextPage}}" disabled="{{nextDisabled}}" aria-label="Next page" style="display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 8px; border: 1px solid #e3e1dc; background: #ffffff; color: #16181a; cursor: pointer;">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+</div>
+</nav>
+</div>
+
+</div>
+
+<!-- Footer -->
+<footer style="margin-top: 80px; flex-shrink: 0; padding: 40px 120px; background: #ffffff; border-top: 1px solid #e3e1dc; display: flex; justify-content: space-between; font-size: 14px; color: #43474c;">
+<div style="font-family: 'Archivo', sans-serif; font-weight: 800; font-size: 18px; color: #16181a;">[Shop Name]</div>
+<div>[Street address, City, State] · [Phone] · FFL #[License number]</div>
+</footer>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#b4541a","options":["#b4541a","#2f5d50","#1f4e79","#16181a"]},"$preview":{"width":1440,"height":2440}}'>
+class Component extends DCLogic {
+  items() {
+    if (this._items) return this._items;
+    // Sample inventory for the mockup. Real specs only for the five models in the database.
+    const M = [
+      ['Glock', 'G19 Gen3', 'Handgun', '9mm Luger', '15 rds', 6, '4.02 in / 102 mm', '21.2 oz / 600 g'],
+      ['Glock', 'G17 Gen5', 'Handgun', '9mm Luger', '17 rds', 4],
+      ['Glock', 'G43X', 'Handgun', '9mm Luger', '10 rds', 3],
+      ['CZ', '75 SP-01', 'Handgun', '9mm Luger', '18 rds', 3, '4.6 in / 117 mm', '40.7 oz / 1,154 g'],
+      ['CZ', '75 D PCR Compact', 'Handgun', '9mm Luger', '14 rds', 2, '3.75 in / 95 mm', '27.5 oz / 780 g'],
+      ['Smith & Wesson', 'M&P9 2.0', 'Handgun', '9mm Luger', '17 rds', 4],
+      ['Smith & Wesson', '686', 'Handgun', '.357 Magnum', '6 rds', 2],
+      ['Sig Sauer', 'P365', 'Handgun', '9mm Luger', '10 rds', 4],
+      ['Sig Sauer', 'P320', 'Handgun', '9mm Luger', '17 rds', 2],
+      ['Ruger', 'GP100', 'Handgun', '.357 Magnum', '6 rds', 2],
+      ['Ruger', '10/22', 'Rifle', '.22 LR', '10 rds', 4],
+      ['Springfield Armory', 'Hellcat', 'Handgun', '9mm Luger', '11 rds', 2],
+      ['Beretta', '92FS', 'Handgun', '9mm Luger', '15 rds', 2],
+      ['Marlin', '1894 Trapper', 'Rifle', '.357 Magnum', '8 rds', 2, '16.1 in / 409 mm', '6.3 lb / 2.86 kg'],
+      ['Henry', 'Big Boy Steel', 'Rifle', '.44 Magnum', '10 rds', 2],
+      ['Savage', 'Axis II', 'Rifle', '.308 Winchester', '4 rds', 2],
+      ['Mossberg', '500 Retrograde', 'Shotgun', '12 gauge', '5+1', 2, '18.5 in / 470 mm', '6.75 lb / 3.06 kg'],
+      ['Remington', '870', 'Shotgun', '12 gauge', '4+1', 3],
+      ['Benelli', 'M2 Field', 'Shotgun', '12 gauge', '3+1', 1],
+      ['Browning', 'Citori', 'Shotgun', '12 gauge', '2', 1],
+      ['Walther', 'PDP', 'Handgun', '9mm Luger', '18 rds', 1],
+      ['Taurus', 'G3C', 'Handgun', '9mm Luger', '12 rds', 1],
+      ['Colt', 'Python', 'Handgun', '.357 Magnum', '6 rds', 1],
+      ['Winchester', 'SXP', 'Shotgun', '20 gauge', '4+1', 1]
+    ];
+    const CONDS = ['Excellent', 'Very Good', 'Like New', 'Good', 'Very Good', 'Excellent', 'Fair', 'Like New'];
+    const out = [];
+    let k = 0;
+    M.forEach((m, mi) => {
+      // Sample roster status, per model (the roster lists models, not individual guns). Illustrative only.
+      const rostered = m[2] !== 'Handgun' ? 'Not required (long guns)' : (mi % 4 === 2 ? 'Off roster' : 'On roster');
+      for (let j = 0; j < m[5]; j++) {
+        k++;
+        const status = k % 17 === 0 ? 'coming_soon' : k % 13 === 0 ? 'pending' : k % 9 === 0 ? 'on_hold' : 'available';
+        out.push({
+          make: m[0], model: m[1], type: m[2], caliber: m[3], capacity: m[4],
+          barrel: m[6] || '', weight: m[7] || '',
+          condition: k % 5 === 0 ? 'New' : CONDS[k % CONDS.length],
+          mods: k % 4 === 0 ? 'Modified' : 'Factory original',
+          newused: k % 5 === 0 ? 'New' : 'Used',
+          roster: rostered,
+          status,
+          stock: status === 'coming_soon' ? '' : 'U-' + (1000 + k)
+        });
+      }
+    });
+    this._items = out;
+    return out;
+  }
+
+  renderVals() {
+    const s = this.state || {};
+    const EMPTY = { newused: [], type: [], roster: [], make: [], caliber: [], condition: [], mods: [] };
+    const sel = s.sel || EMPTY;
+    const closed = s.closed || {};
+    const expanded = s.expanded || {};
+    const q = s.q || {};
+    const include = s.include !== false;
+    const perPage = s.perPage || 12;
+    const all = this.items();
+    const base = include ? all : all.filter((i) => i.status === 'available');
+    const matches = (it, skip) => Object.keys(sel).every((g) => g === skip || sel[g].length === 0 || sel[g].indexOf(it[g]) >= 0);
+    const filtered = base.filter((it) => matches(it, null));
+
+    const setSel = (g, v) => {
+      const cur = sel[g];
+      const next = cur.indexOf(v) >= 0 ? cur.filter((x) => x !== v) : cur.concat([v]);
+      this.setState({ sel: Object.assign({}, sel, { [g]: next }), page: 1 });
+    };
+    const TYPE_LABEL = { Handgun: 'Handguns', Rifle: 'Rifles', Shotgun: 'Shotguns' };
+    const DEFS = [
+      { id: 'newused', label: 'New / Used', order: ['New', 'Used'] },
+      { id: 'type', label: 'Type', order: ['Handgun', 'Rifle', 'Shotgun'], display: (v) => TYPE_LABEL[v] },
+      { id: 'roster', label: 'CA Roster', order: ['On roster', 'Off roster', 'Not required (long guns)'] },
+      { id: 'make', label: 'Manufacturer', searchLabel: 'Search manufacturers' },
+      { id: 'caliber', label: 'Caliber', searchLabel: 'Search calibers' },
+      { id: 'condition', label: 'Condition', order: ['New', 'Like New', 'Excellent', 'Very Good', 'Good', 'Fair'] },
+      { id: 'price', label: 'Price', isPrice: true },
+      { id: 'mods', label: 'Modifications', order: ['Factory original', 'Modified'] }
+    ];
+    const LIMIT = 5;
+
+    const groups = DEFS.map((d) => {
+      const open = !closed[d.id];
+      const base2 = {
+        label: d.label, panelId: 'filter-' + d.id, open,
+        chevron: open ? 'rotate(180deg)' : 'rotate(0deg)',
+        toggle: () => this.setState({ closed: Object.assign({}, closed, { [d.id]: open }) }),
+        isPrice: !!d.isPrice, searchable: false, options: [], hasMore: false, noMatches: false,
+        hasSelected: false, selectedCount: 0, searchId: 'search-' + d.id, searchLabel: d.searchLabel || '', query: '',
+        onSearch: () => {}, moreLabel: '', toggleMore: () => {}
+      };
+      if (d.isPrice) return base2;
+      const counts = {};
+      base.filter((it) => matches(it, d.id)).forEach((it) => { counts[it[d.id]] = (counts[it[d.id]] || 0) + 1; });
+      const chosen = sel[d.id];
+      let vals = d.order ? d.order.slice() : Object.keys(counts).sort((a, b) => (counts[b] - counts[a]) || a.localeCompare(b));
+      vals = vals.filter((v) => (counts[v] || 0) > 0 || chosen.indexOf(v) >= 0);
+      const query = (q[d.id] || '').trim().toLowerCase();
+      const searchable = !!d.searchLabel && vals.length > LIMIT;
+      if (query) vals = vals.filter((v) => v.toLowerCase().indexOf(query) >= 0);
+      const total = vals.length;
+      const showAll = !d.searchLabel || !!expanded[d.id] || !!query;
+      const visible = showAll ? vals : vals.slice(0, LIMIT);
+      return Object.assign(base2, {
+        searchable,
+        query: q[d.id] || '',
+        onSearch: (e) => this.setState({ q: Object.assign({}, q, { [d.id]: e.target.value }) }),
+        options: visible.map((v) => ({
+          label: d.display ? d.display(v) : v,
+          count: counts[v] || 0,
+          checked: chosen.indexOf(v) >= 0,
+          toggle: () => setSel(d.id, v)
+        })),
+        noMatches: !!query && total === 0,
+        hasMore: !!d.searchLabel && !query && total > LIMIT,
+        moreLabel: expanded[d.id] ? 'Show fewer' : 'Show all ' + total,
+        toggleMore: () => this.setState({ expanded: Object.assign({}, expanded, { [d.id]: !expanded[d.id] }) }),
+        hasSelected: chosen.length > 0,
+        selectedCount: chosen.length
+      });
+    });
+
+    const chips = [];
+    DEFS.forEach((d) => {
+      (sel[d.id] || []).forEach((v) => chips.push({ label: d.display ? d.display(v) : v, remove: () => setSel(d.id, v) }));
+    });
+
+    const total = filtered.length;
+    const pages = Math.max(1, Math.ceil(total / perPage));
+    const page = Math.min(s.page || 1, pages);
+    const start = (page - 1) * perPage;
+    const slice = filtered.slice(start, start + perPage);
+    const STATUS = {
+      on_hold: { label: 'On hold', fg: '#7a4f00', bg: '#fbeed3' },
+      pending: { label: 'Sale pending', fg: '#5b3f8c', bg: '#efe9f7' },
+      coming_soon: { label: 'Coming soon', fg: '#1f4e79', bg: '#e3edf7' }
+    };
+    const cards = slice.map((it, ci) => {
+      const st = STATUS[it.status];
+      return {
+        make: it.make, model: it.model, typeLabel: it.type, caliber: it.caliber, capacity: it.capacity,
+        hasSpecs: !!it.barrel, barrel: it.barrel, weight: it.weight,
+        condition: it.condition, modified: it.mods === 'Modified',
+        tipOpen: s.rtip === ci, showTip: () => this.setState({ rtip: ci }), hideTip: () => this.setState({ rtip: -1 }),
+        overTen: (parseInt(it.capacity, 10) || 0) > 10,
+        isNew: it.newused === 'New', isUsed: it.newused === 'Used', onRoster: it.roster === 'On roster', offRoster: it.roster === 'Off roster',
+        stock: it.stock ? '#' + it.stock : '',
+        showStatus: !!st, statusLabel: st ? st.label : '', statusBg: st ? st.bg : '', statusFg: st ? st.fg : ''
+      };
+    });
+    const pageButtons = [];
+    for (let n = 1; n <= pages; n++) {
+      pageButtons.push({ n, current: n === page, other: n !== page, go: () => this.setState({ page: n }) });
+    }
+
+    return {
+      accent: this.props.accent ?? '#b4541a',
+      listedText: base.length + ' guns listed',
+      groups,
+      chips,
+      hasChips: chips.length > 0,
+      clearAll: () => this.setState({ sel: EMPTY, q: {}, page: 1 }),
+      includeOther: include,
+      toggleInclude: () => this.setState({ include: !include, page: 1 }),
+      perPageStr: String(perPage),
+      setPerPage: (e) => this.setState({ perPage: parseInt(e.target.value, 10) || 12, page: 1 }),
+      cards,
+      noResults: total === 0,
+      showingText: total === 0 ? 'No results' : 'Showing ' + (start + 1) + '–' + (start + slice.length) + ' of ' + total,
+      pageButtons,
+      prevDisabled: page <= 1,
+      nextDisabled: page >= pages,
+      prevPage: () => this.setState({ page: Math.max(1, page - 1) }),
+      nextPage: () => this.setState({ page: Math.min(pages, page + 1) })
+    };
+  }
+}
+</script>
+</body>
+</html>
