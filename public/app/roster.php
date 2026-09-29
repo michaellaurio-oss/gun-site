@@ -64,9 +64,50 @@ function roster_parse(string $html): array
     return $rows;
 }
 
+/**
+ * Make every row unique and usable:
+ * - the DOJ table sometimes lists the same entry twice (same page): keep the first;
+ * - the same model certified in several calibers shares one name: add the caliber,
+ *   e.g. "PX4 Storm Type G (9mm) / Steel, Polymer" (then the barrel length if still not unique).
+ * Brackets are ignored by matching, so these still match a firearm named "PX4 Storm Type G".
+ */
+function roster_dedupe(array $rows): array
+{
+    $seen = [];
+    $out = [];
+    foreach ($rows as $r) {
+        if (!isset($seen[$r['detail_path']])) {
+            $seen[$r['detail_path']] = true;
+            $out[] = $r;
+        }
+    }
+    $tag = function (array &$r, string $extra) {
+        $r['model_base'] .= ' (' . $extra . ')';
+        $r['model'] = $r['model_base'] . ($r['material'] !== null && $r['material'] !== '' ? ' / ' . $r['material'] : '');
+    };
+    foreach ([fn($r) => $r['caliber'], fn($r) => $r['barrel_length_in'] !== null ? num($r['barrel_length_in']) . '" barrel' : null] as $extra) {
+        $groups = [];
+        foreach ($out as $i => $r) {
+            $groups[strtolower($r['manufacturer'] . '|' . $r['model'])][] = $i;
+        }
+        foreach ($groups as $idx) {
+            if (count($idx) > 1) {
+                foreach ($idx as $i) {
+                    $x = $extra($out[$i]);
+                    if ($x !== null && $x !== '') {
+                        $tag($out[$i], $x);
+                    }
+                }
+            }
+        }
+    }
+    return $out;
+}
+
 /** Replace ca_roster with fresh rows, then re-check firearms. Returns a summary. */
 function roster_import(PDO $db, array $rows): array
 {
+    $rows = roster_dedupe($rows);
     $db->beginTransaction();
     $db->exec('DELETE FROM ca_roster');
     $ins = $db->prepare('INSERT INTO ca_roster (detail_path, manufacturer, model, model_base, material, gun_type, barrel_length_in, caliber, expires_on, court_order)

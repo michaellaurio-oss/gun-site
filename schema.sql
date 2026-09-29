@@ -206,9 +206,9 @@ CREATE INDEX idx_login_attempts ON login_attempts(ip_hash, attempted_at);
 -- Filled by Admin > CA roster > Refresh; firearms.ca_roster_entry points at detail_path.
 CREATE TABLE ca_roster (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
-    detail_path      TEXT NOT NULL,          -- roster page of the model, e.g. /firearms/handgun/grp (stable id)
+    detail_path      TEXT NOT NULL,          -- roster page of the model, e.g. /firearms/handgun/grp (unique, stable id)
     manufacturer     TEXT NOT NULL,          -- as listed by DOJ, e.g. 'Sturm, Ruger & Co.'
-    model            TEXT NOT NULL,          -- as listed, without the court-order asterisk
+    model            TEXT NOT NULL,          -- as listed, without the court-order asterisk; "(caliber)" added when a name is shared by several calibers
     model_base       TEXT NOT NULL,          -- part before ' / ' (the material)
     material         TEXT,
     gun_type         TEXT,                   -- Pistol / Revolver
@@ -219,12 +219,13 @@ CREATE TABLE ca_roster (
     imported_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-CREATE INDEX idx_ca_roster_path ON ca_roster(detail_path);
+CREATE UNIQUE INDEX idx_ca_roster_path ON ca_roster(detail_path);        -- one row per roster page (repeats dropped on import)
+CREATE UNIQUE INDEX idx_ca_roster_model ON ca_roster(manufacturer, model);  -- names shared by several calibers get "(caliber)" added
 CREATE INDEX idx_ca_roster_make ON ca_roster(manufacturer);
 
 -- Database updates already included in this file (app/migrate.php skips these).
 CREATE TABLE schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT (datetime('now')));
-INSERT INTO schema_migrations (version) VALUES ('001'), ('002'), ('003');
+INSERT INTO schema_migrations (version) VALUES ('001'), ('002'), ('003'), ('004');
 
 -- What the website shows: guns currently for sale, with their key specs
 CREATE VIEW listings_public AS
