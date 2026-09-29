@@ -284,6 +284,144 @@ function roster_search(PDO $db, string $q, int $limit = 25): array
     return $out;
 }
 
+// ---------------- copy the roster into firearms ----------------
+
+/**
+ * Model name for the Firearms catalog: the roster name without colours / notes in brackets,
+ * SKU and catalog numbers, or the maker's name repeated. Falls back to the roster's own name
+ * when cleaning would leave nothing (makers that list only a catalog code, e.g. Sig "320CA-9-M18-MS-CA").
+ */
+function roster_catalog_name(string $modelBase, string $rosterMake, string $displayMake): string
+{
+    $raw = trim(preg_replace('/\s*\([^)]*\)\s*$/', '', $modelBase));   // "(9mm)" added by roster_dedupe
+    $s = ' ' . $raw . ' ';
+    $s = preg_replace('/\([^)]*\)/', ' ', $s);                          // (Black), (S&W Logo Grip)
+    $s = preg_replace('/\bSKU\s*\S+/i', ' ', $s);                       // SKU 164222A
+    $s = preg_replace('/\s-\s*\d{4,6}\b|-\d{5}\b/', ' ', $s);           // "- 14295", "-14298"
+    $s = preg_replace('/^\s*\d{5}\s+(?=[A-Za-z])/', ' ', $s);           // leading "14420 Bulldog"
+    $s = preg_replace('/\s(?:0\d{3,4}|\d{5})(?=\s)/', ' ', $s);         // Ruger catalog numbers "05430", "13747"
+    $s = trim(preg_replace('/\s+/', ' ', $s));
+    // Maker codes mixed into names ("J92F300CA 92FS", "PX4 Storm Type F JXF9F20", "P226R 226R-40-BSS-CA"):
+    // drop them when a real name is left over.
+    $words = preg_split('/\s+/', $s);
+    $isCode = fn($w) => preg_match('/^(?=[A-Z0-9]*\d)(?=[A-Z0-9]*[A-Z])[A-Z0-9]{6,}$/', $w) || preg_match('/^[A-Z0-9]+(?:-[A-Z0-9]+){2,}$/', $w);
+    $kept = array_values(array_filter($words, fn($w) => !$isCode($w)));
+    if ($kept && preg_match('/[A-Za-z]{2,}|\d/', implode(' ', $kept))) {
+        $s = implode(' ', $kept);
+    }
+    // Colour words and California listing noise ("G19 OD", "Hellcat ... BLK CA OSP"), again only if a name remains.
+    $noise = '/\s(?:OD(?:\s+Green)?|FDE|Black|Blk|Gr[ae]y|Two[- ]Tone|Pink|Purple|Tan|Coyote|Bronze|CA|PAC|OSP|OSP-CA|Pistol|UN-WD)(?=\s|$)/i';
+    $t = trim(preg_replace('/\s+/', ' ', preg_replace($noise, ' ', ' ' . $s . ' ')));
+    if ($t !== '' && preg_match('/[A-Za-z0-9]/', $t)) {
+        $s = $t;
+    }
+    foreach (array_unique([$displayMake, preg_replace('/[,(].*$/', '', $rosterMake)]) as $mk) {
+        $mk = trim($mk);
+        if ($mk !== '' && stripos($s . ' ', $mk . ' ') === 0 && strlen($s) > strlen($mk) + 1) {
+            $s = trim(substr($s, strlen($mk)));                           // "FN Five-seveN" -> "Five-seveN"
+        }
+    }
+    if ($s === '' || !preg_match('/[A-Za-z0-9]/', $s)) {
+        $s = trim(preg_replace('/\s+/', ' ', preg_replace('/\([^)]*\)/', ' ', $raw))) ?: $raw;
+    }
+    if (roster_make_key($displayMake) === 'glock' && preg_match('/^\d/', $s)) {
+        $s = 'G' . $s;                                                    // shop naming: "19" -> "G19"
+    }
+    return $s;
+}
+
+/**
+ * Add one firearm per make + model + caliber on the roster (colour / grip / SKU variants merged).
+ * Skips anything already in Firearms under the same make and model. Safe to run again:
+ * only new models are added. Returns counts.
+ */
+function roster_copy_to_firearms(PDO $db): array
+{
+    $today = date('Y-m-d');
+    $rows = $db->query('SELECT * FROM ca_roster ORDER BY manufacturer, model')->fetchAll();
+    $pretty = fn(string $a, string $b) => preg_match_all('/[a-z]/', $b) > preg_match_all('/[a-z]/', $a) ? $b : $a;  // prefer "Super Redhawk" over "SUPER REDHAWK"
+
+    // Group variants.
+    $groups = [];
+    foreach ($rows as $r) {
+        $r['caliber'] = preg_replace('/^(\d+(?:\.\d+)?)MM\b/i', '$1mm', trim((string)$r['caliber']));   // "9MM" -> "9mm"
+        $make = roster_display_make($db, $r['manufacturer']);
+        $name = roster_catalog_name($r['model_base'], $r['manufacturer'], $make);
+        // The caliber is its own field, so drop it from the name ("Hellcat 9mm 3\"" -> "Hellcat 3\"").
+        $cal = preg_quote($r['caliber'], '/');
+        $t = trim(preg_replace('/\s+/', ' ', preg_replace('/(^|\s)' . $cal . '(?=\s|$)/i', ' ', $name)));
+        if ($t !== '' && $cal !== '') {
+            $name = $t;
+        }
+        $key = roster_make_key($make) . '|' . roster_compact($name) . '|' . roster_compact($r['caliber']);
+        if (!isset($groups[$key])) {
+            $groups[$key] = ['make' => $make, 'name' => $name, 'caliber' => $r['caliber'], 'rows' => []];
+        } else {
+            $groups[$key]['name'] = $pretty($groups[$key]['name'], $name);
+            $groups[$key]['caliber'] = $pretty($groups[$key]['caliber'], $r['caliber']);
+        }
+        $groups[$key]['rows'][] = $r;
+    }
+    // Same model in several calibers: one firearm per caliber, caliber in the name.
+    $calibers = [];
+    foreach ($groups as $g) {
+        $calibers[roster_make_key($g['make']) . '|' . roster_compact($g['name'])][roster_compact($g['caliber'])] = true;
+    }
+    foreach ($groups as &$g) {
+        if (count($calibers[roster_make_key($g['make']) . '|' . roster_compact($g['name'])]) > 1) {
+            $g['name'] .= ' (' . $g['caliber'] . ')';
+        }
+    }
+    unset($g);
+
+    // What's already in Firearms (same make + model = skip).
+    $have = [];
+    $slugs = [];
+    foreach ($db->query('SELECT manufacturer, model, slug FROM firearms') as $f) {
+        $have[roster_make_key($f['manufacturer']) . '|' . roster_compact($f['model'])] = true;
+        $slugs[$f['slug']] = true;
+    }
+
+    $ins = $db->prepare('INSERT INTO firearms (slug, manufacturer, model, category, caliber, action, barrel_length_in, frame_material,
+                             ca_rostered, ca_roster_checked_on, ca_roster_entry, source_url, data_notes)
+                         VALUES (?, ?, ?, \'handgun\', ?, ?, ?, ?, 1, ?, ?, ?, ?)');
+    $added = $skipped = 0;
+    $db->beginTransaction();
+    foreach ($groups as $g) {
+        $k = roster_make_key($g['make']) . '|' . roster_compact($g['name']);
+        if (isset($have[$k])) {
+            $skipped++;
+            continue;
+        }
+        $barrels = array_values(array_unique(array_map(fn($r) => $r['barrel_length_in'] === null ? '' : num($r['barrel_length_in']), $g['rows'])));
+        $materials = array_values(array_unique(array_map(fn($r) => (string)$r['material'], $g['rows'])));
+        $types = array_values(array_unique(array_column($g['rows'], 'gun_type')));
+        $first = $g['rows'][0];
+        $notes = 'Added from the CA DOJ handgun roster on ' . $today . '. Roster listings: '
+            . implode('; ', array_map(fn($r) => $r['model'] . ($r['barrel_length_in'] !== null ? ' (' . num($r['barrel_length_in']) . '")' : ''), $g['rows'])) . '.';
+        if (count($barrels) > 1) {
+            $notes .= ' Barrel length varies by variant (' . implode(', ', array_map(fn($b) => $b . '"', array_filter($barrels, 'strlen'))) . '), so it is left blank.';
+        }
+        $slugBase = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($g['make'] . ' ' . $g['name'])), '-');
+        $slug = $slugBase;
+        for ($n = 2; isset($slugs[$slug]); $n++) {
+            $slug = $slugBase . '-' . $n;
+        }
+        $slugs[$slug] = true;
+        $ins->execute([
+            $slug, $g['make'], $g['name'], $g['caliber'],
+            $types === ['Revolver'] ? 'Revolver' : null,
+            count($barrels) === 1 && $barrels[0] !== '' ? (float)$first['barrel_length_in'] : null,
+            count($materials) === 1 && $materials[0] !== '' ? $materials[0] : null,
+            $today, $first['detail_path'], ROSTER_SITE . $first['detail_path'], $notes,
+        ]);
+        $have[$k] = true;
+        $added++;
+    }
+    $db->commit();
+    return ['groups' => count($groups), 'added' => $added, 'skipped' => $skipped];
+}
+
 function roster_status(PDO $db): array
 {
     $r = $db->query('SELECT COUNT(*) n, MAX(imported_at) at FROM ca_roster')->fetch();

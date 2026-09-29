@@ -48,6 +48,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db->prepare("UPDATE firearms SET ca_rostered = NULL, ca_roster_checked_on = NULL, ca_roster_entry = NULL, updated_at = datetime('now') WHERE id = ?")
                ->execute([$fid]);
             flash('Roster status cleared (not checked).');
+        } elseif ($action === 'copy_to_firearms') {
+            $s = roster_copy_to_firearms($db);
+            flash($s['added'] . ' firearm' . ($s['added'] === 1 ? '' : 's') . ' added to Firearms from the roster'
+                . ($s['skipped'] ? ' (' . $s['skipped'] . ' already there, left as they were)' : '') . '.');
         } elseif ($action === 'confirm_exact') {
             $roster = roster_prepare($db->query('SELECT * FROM ca_roster')->fetchAll());
             $set = $db->prepare("UPDATE firearms SET ca_rostered = 1, ca_roster_checked_on = ?, ca_roster_entry = ?, updated_at = datetime('now') WHERE id = ?");
@@ -116,6 +120,14 @@ admin_header('CA roster', 'roster');
   <div class="roster-actions">
     <form method="post" action="<?= e(url('admin/roster.php')) ?>"><?= csrf_field() ?><input type="hidden" name="action" value="refresh">
       <button class="btn btn-dark" type="submit"><?= $status['rows'] ? 'Download the latest roster' : 'Download the roster' ?></button></form>
+    <?php if ($status['rows']): ?>
+    <form method="post" action="<?= e(url('admin/roster.php')) ?>" class="copy-roster">
+      <?= csrf_field() ?><input type="hidden" name="action" value="copy_to_firearms">
+      <button class="btn btn-outline" type="submit">Copy the roster into Firearms</button>
+      <span class="muted small">Adds one firearm per make, model and caliber (colour, grip and SKU variants combined), marked on the roster.
+        Firearms you already have are left alone, so it's safe to run again after each download to pick up new models.</span>
+    </form>
+    <?php endif; ?>
     <details>
       <summary>Download not working? Upload the page instead</summary>
       <form method="post" enctype="multipart/form-data" action="<?= e(url('admin/roster.php')) ?>" class="admin-filters" style="margin-top:10px">

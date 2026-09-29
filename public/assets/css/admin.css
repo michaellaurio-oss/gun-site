@@ -104,3 +104,5 @@ form.inline { display: inline; margin: 0; }
 .cands li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
 .roster-item-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .roster-pick { display: flex; flex-direction: column; gap: 12px; padding: 18px 20px; border: 1px solid #C9D9EA; border-radius: var(--r-card); background: #F4F8FC; max-width: 900px; }
+.copy-roster { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.copy-roster .small { max-width: 560px; line-height: 1.45; }
