@@ -23,7 +23,7 @@ function page_header(string $title, string $active = '', array $opts = []): void
 <title><?= e($fullTitle) ?></title>
 <?php if (!empty($opts['description'])): ?><meta name="description" content="<?= e($opts['description']) ?>">
 <?php endif; ?>
-<?php if (!empty($opts['noindex'])): ?><meta name="robots" content="noindex">
+<?php if (!empty($opts['noindex']) || shop('demo_notice') !== ''): ?><meta name="robots" content="noindex, nofollow">
 <?php endif; ?>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -34,6 +34,7 @@ function page_header(string $title, string $active = '', array $opts = []): void
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
+<?php if (shop('demo_notice') !== ''): ?><div class="demo-notice" role="note"><?= e(shop('demo_notice')) ?></div><?php endif; ?>
 <header class="site-header">
   <div class="container header-inner">
     <a class="logo" href="<?= e(url()) ?>"><?= e($shopName) ?></a>
@@ -81,8 +82,9 @@ function page_footer(bool $full = false): void
     <div>
       <div class="footer-head">Contact</div>
       <div><?= phone_link() ?></div>
-      <div><a href="<?= e(url('contact.php')) ?>"><?= e(shop('email')) ?></a></div>
-      <div>FFL #<?= e(shop('ffl')) ?></div>
+      <?php if (shop('phone_alt') !== ''): ?><div><?= e(shop('phone_alt')) ?></div><?php endif; ?>
+      <div><a href="<?= e(url('contact.php')) ?>"><?= e(shop('email') !== '' ? shop('email') : 'Send us a message') ?></a></div>
+      <?php if (shop('ffl') !== ''): ?><div>FFL #<?= e(shop('ffl')) ?></div><?php endif; ?>
     </div>
   </div>
 </footer>
@@ -90,7 +92,7 @@ function page_footer(bool $full = false): void
 <footer class="site-footer site-footer-compact">
   <div class="container footer-row">
     <div class="footer-logo"><?= e(shop('name')) ?></div>
-    <div><?= e(shop('street')) ?>, <?= e(shop('city')) ?> · <?= phone_link() ?> · FFL #<?= e(shop('ffl')) ?></div>
+    <div><?= e(shop('street')) ?>, <?= e(shop('city')) ?> · <?= phone_link() ?><?= shop('ffl') !== '' ? ' · FFL #' . e(shop('ffl')) : '' ?></div>
   </div>
 </footer>
 <?php endif; ?>

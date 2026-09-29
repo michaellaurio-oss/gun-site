@@ -356,3 +356,6 @@ textarea.input { padding: 10px 12px; min-height: 140px; resize: vertical; line-h
 .alert { padding: 16px 18px; border-radius: var(--r-card); border: 1px solid; font-size: 15px; }
 .alert-ok { background: #E4EFE9; border-color: #B9D6C6; color: #1F5A40; }
 .alert-err { background: #FBEBE6; border-color: #EBC2B4; color: #8A2E12; }
+
+/* Demo notice (shop.php 'demo_notice') */
+.demo-notice { background: #FBEED3; color: #5C3B00; border-bottom: 1px solid #EAD29B; padding: 8px var(--gutter); font-size: 13px; line-height: 1.45; text-align: center; }

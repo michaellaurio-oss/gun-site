@@ -90,8 +90,8 @@ page_header('', 'home', ['description' => shop('hero_text')]);
     </div>
     <div class="steps">
       <div class="step"><div class="step-num">Step 1</div><div class="step-title">Find your gun</div><div class="step-text">Browse photos, condition notes and full specs for every listing.</div></div>
-      <div class="step"><div class="step-num">Step 2</div><div class="step-title">Contact us to reserve it</div><div class="step-text">Send the stock number and we'll confirm availability. <?= e(shop('hold_policy')) ?></div></div>
-      <div class="step"><div class="step-num">Step 3</div><div class="step-title">Transfer and pick up</div><div class="step-text">Complete the paperwork at <?= e(shop('transfer_at')) ?>, then take it home.</div></div>
+      <div class="step"><div class="step-num">Step 2</div><div class="step-title">Contact us to reserve it</div><div class="step-text">Send the stock number and we'll confirm availability.<?= shop('hold_policy') !== '' ? ' ' . e(shop('hold_policy')) : '' ?></div></div>
+      <div class="step"><div class="step-num">Step 3</div><div class="step-title">Background check and pick up</div><div class="step-text">Bring your ID and Firearm Safety Certificate to <?= e(shop('transfer_at')) ?> to start the background check, then pick up your gun after California's 10-day waiting period.</div></div>
     </div>
   </section>
 </div>

@@ -105,7 +105,7 @@ Public badge colours + hover-tooltip text (tooltip on hover AND keyboard focus):
 4. ~~Data cleanup of the imported inventory~~: moot since the 2026-09-28 reset (old data in `backups/before-reset-2026-09-28/`). Firearms are now added as needed (handguns from the CA roster). Still open: per-gun caliber / barrel length on `listings` (proposed, not decided) and a curated list of common rifles / shotguns.
 5. Specs: first pass done 2026-09-29 (Glock, CZ, Springfield, Kimber, Walther, Ruger, S&W, Charter, NAA, Wilson, Browning, Rock Island partly; ~248 of 785). Sig, Beretta, Taurus, H&K and others block scraping or need JS; Michael plans to fill the rest from an FFL customer's distributor data feed. Only research more when asked (easy finds only).
 6. CA roster: use Admin > CA roster (download, then confirm matches); re-download monthly. **Open question for Michael:** CA exempts certain single-action revolvers from the roster (Ruger Blackhawk / Vaquero / Single-Six etc. are not on it); the schema only has on / off / unchecked, so decide how to show exempt guns before marking them "off roster". Home page copy ("Used guns, fully specified.") predates new-gun sales — revisit.
-7. Placeholders to fill: shop name, address, hours, phone, email, FFL #, deposit/hold policy, MSRPs.
+7. Shop details: filled 2026-09-29 as a demo for Crosshairs Gun Store (Torrance) from crosshairsgunstore.com, with a site-wide demo_notice banner + noindex (set demo_notice to '' in public/app/shop.php if the store adopts the site). Still unknown: email, FFL #, hold/deposit policy. About/How to buy pages carry their services, fees and CA purchase FAQ.
 
 ## Working preferences
 
