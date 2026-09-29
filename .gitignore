@@ -29,3 +29,6 @@ backups/
 
 # Deploy state, first-deploy database, server config
 deploy/.deploy-state.json
+
+# Old inventory import (kept locally for reference)
+archive/
