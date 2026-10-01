@@ -40,7 +40,7 @@ page_header('', 'home', ['description' => shop('hero_text')]);
   </section>
 
   <section class="promises" aria-label="What you get with every listing">
-    <div class="promise"><?= icon('camera', 24) ?><div><div class="promise-title">Photos of the actual gun</div><div class="promise-text">Never stock images — you see the one you get.</div></div></div>
+    <div class="promise"><?= icon('camera', 24) ?><div><div class="promise-title">Used guns photographed as they are</div><div class="promise-text">Every used gun is shown in its own photos — you see the one you get.</div></div></div>
     <div class="promise"><?= icon('graded', 24) ?><div><div class="promise-title">Graded condition, noted wear</div><div class="promise-text">Condition, round count, modifications and what's included.</div></div></div>
     <div class="promise"><?= icon('ruler', 24) ?><div><div class="promise-title">Full specs, imperial &amp; metric</div><div class="promise-text">Barrel, length, weight, trigger pull and more.</div></div></div>
   </section>

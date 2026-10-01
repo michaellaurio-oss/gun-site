@@ -43,6 +43,7 @@
     return {
       sel: sel,
       q: (p.get('q') || '').trim(),
+      leo: p.get('leo') === '1',   // header: New Inventory > LEO
       pmin: parsePrice(p.get('pmin')),
       pmax: parsePrice(p.get('pmax')),
       include: p.get('inc') !== '0',
@@ -55,6 +56,7 @@
   function writeUrl() {
     var p = new URLSearchParams();
     if (state.q) p.set('q', state.q);
+    if (state.leo) p.set('leo', '1');
     FACETS.forEach(function (g) { state.sel[g.id].forEach(function (v) { p.append(g.id, v); }); });
     if (state.pmin !== null) p.set('pmin', state.pmin);
     if (state.pmax !== null) p.set('pmax', state.pmax);
@@ -94,6 +96,7 @@
   // skip = group id whose own selection is ignored (for that group's counts)
   function matches(it, skip) {
     if (!matchesText(it) || !matchesPrice(it)) return false;
+    if (state.leo && !it.leo) return false;
     return FACETS.every(function (g) {
       var s = state.sel[g.id];
       return g.id === skip || s.length === 0 || s.indexOf(it[g.id]) >= 0;
@@ -148,14 +151,20 @@
     return String(s).split(' / ').map(function (p) { return '<span class="nw">' + esc(p) + '</span>'; }).join(' / ');
   }
 
-  // Keep in sync with render_card() in app/layout.php.
+  // Keep in sync with render_card() and compare_toggle() in app/layout.php.
   function renderCard(c) {
     var st = c.status !== 'available' ? STATUS[c.status] : null;
-    var h = '<article class="card"><div class="card-photo">';
+    var picked = window.Compare ? window.Compare.has(c.id) : false;
+    var h = '<article class="card' + (picked ? ' is-picked' : '') + '"><div class="card-photo">';
     h += c.photo ? '<img src="' + esc(c.photo) + '" alt="" loading="lazy">' : '<span class="ph-text">Photo coming soon</span>';
     h += '<span class="chip">' + esc(c.type) + '</span>';
     if (st) h += '<span class="card-status">' + tooltip(esc(st.label) + icon('info', 12), st.tip, 'badge', 'color:' + st.fg + ';background:' + st.bg) + '</span>';
-    h += '</div><div class="card-body"><div class="card-head"><div class="min0">';
+    h += '<label class="cmp-pick"><input type="checkbox" data-compare="' + c.id + '" data-make="' + esc(c.make) + '" data-model="' + esc(c.model) + '" data-photo="' + esc(c.photo || '') + '"' +
+      (picked ? ' checked' : '') + '> Compare<span class="sr-only"> ' + esc(c.make + ' ' + c.model) + '</span></label>';
+    if (c.stockPhoto) h += '<span class="stock-tag card-stock-tag tip-right">' + tooltip('Stock photo' + icon('info', 12), NOTES.stockPhoto, 'stock-tag-btn') + '</span>';
+    h += '</div><div class="card-body">';
+    if (c.leo) h += '<span class="leo-badge card-leo">' + tooltip(esc(NOTES.leoLabel) + icon('info', 13), NOTES.leo, 'leo-badge-btn') + '</span>';
+    h += '<div class="card-head"><div class="min0">';
     h += '<div class="card-make">' + esc(c.make) + '</div>';
     h += '<h3 class="card-model"><a class="card-link" href="' + esc(c.url) + '">' + esc(c.model) + '</a></h3></div>';
     if (c.stock) h += '<div class="card-stock">#' + esc(c.stock) + '</div>';
@@ -167,7 +176,7 @@
     h += '</dl><div class="card-foot"><div class="tags">';
     h += c.newused === 'New' ? '<span class="tag tag-new">New</span>' : '<span class="tag">Used' + (c.condition ? ' · ' + esc(c.condition) : '') + '</span>';
     if (c.roster === 'On roster') h += '<span class="tag tag-roster">CA Roster</span>';
-    if (c.roster === 'Off roster') h += tooltip('Off roster' + icon('info', 12), NOTES.offRoster, 'tag tag-help');
+    if (c.roster === 'Off roster' && !c.leo) h += tooltip('Off roster' + icon('info', 12), NOTES.offRoster, 'tag tag-help');
     if (c.mods === 'Modified') h += '<span class="tag">Modified</span>';
     h += '</div><span class="card-price">' + esc(c.priceText) + '</span></div></div></article>';
     return h;
@@ -290,6 +299,7 @@
     // Chips
     var chips = [];
     if (state.q) chips.push({ label: 'Search: “' + state.q + '”', kind: 'q' });
+    if (state.leo) chips.push({ label: NOTES.leoLabel, kind: 'leo' });
     FACETS.forEach(function (g) {
       state.sel[g.id].forEach(function (v) { chips.push({ label: g.display ? g.display(v) : v, kind: 'sel', group: g.id, value: v }); });
     });
@@ -367,7 +377,7 @@
   function clearAll() {
     ui.fq = {};
     groupsEl.querySelectorAll('[data-fsearch]').forEach(function (i) { i.value = ''; });
-    update({ sel: emptySel(), q: '', pmin: null, pmax: null });
+    update({ sel: emptySel(), q: '', pmin: null, pmax: null, leo: false });
   }
 
   // ---------- events ----------
@@ -415,6 +425,7 @@
     if (!b) return;
     var c = chipsEl._chips[+b.getAttribute('data-chip')];
     if (c.kind === 'q') update({ q: '' });
+    if (c.kind === 'leo') update({ leo: false });
     if (c.kind === 'price') update({ pmin: null, pmax: null });
     if (c.kind === 'sel') toggleSel(c.group, c.value);
     var next = chipsEl.querySelector('.fchip') || document.getElementById('grid');

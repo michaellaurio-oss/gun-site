@@ -1,6 +1,6 @@
-// Admin helpers: "tick all" checkbox and the photo uploader, which shrinks photos in the
-// browser (max 2400px, rotated upright) before sending, so big phone photos upload quickly
-// and stay under the host's upload limits. The server re-checks and re-encodes every file.
+// Admin helpers: "tick all" checkbox, firearm picker, condition grades, and the listing's
+// "Add photos": photos are shrunk in the browser (max 2400px, rotated upright) before sending, so
+// big phone photos upload quickly and stay under the host's upload limits. The server re-checks and re-encodes every file.
 (function () {
   'use strict';
 
@@ -8,6 +8,74 @@
   if (all) {
     all.addEventListener('change', function () {
       document.querySelectorAll('input[name="ids[]"]').forEach(function (c) { c.checked = all.checked; });
+    });
+  }
+
+  // ---- Firearm: caliber / action dropdowns with "Add a new one…" ----
+  // The text box shows only for "Add a new one". A value already on the list (any capitals) is
+  // simply selected; anything else needs a yes to "Are you sure you want to use it?".
+  document.querySelectorAll('select[data-choice]').forEach(function (sel) {
+    var wrap = sel.parentNode.querySelector('.choice-new');
+    var box = wrap.querySelector('input');
+    var what = sel.getAttribute('data-choice');
+    var known = Array.prototype.map.call(sel.options, function (o) { return o.value; })
+      .filter(function (v) { return v && v !== '__new'; });
+    function show() { wrap.hidden = sel.value !== '__new'; }
+    function check() {
+      var v = box.value.trim();
+      if (!v) return true;
+      var match = known.filter(function (k) { return k.toLowerCase() === v.toLowerCase(); })[0];
+      if (match) {
+        sel.value = match;
+        box.value = '';
+        show();
+        return true;
+      }
+      if (box.getAttribute('data-ok') === v) return true;
+      if (window.confirm('"' + v + '" isn\'t on the list of ' + what + 's. Are you sure you want to use it?')) {
+        box.setAttribute('data-ok', v);
+        return true;
+      }
+      box.focus();
+      box.select();
+      return false;
+    }
+    sel.addEventListener('change', function () { show(); if (sel.value === '__new') box.focus(); });
+    box.addEventListener('change', check);
+    sel.form.addEventListener('submit', function (e) {
+      if (sel.value === '__new' && !check()) e.preventDefault();
+    });
+    show();
+  });
+
+  // ---- Forms that ask first (data-confirm), e.g. Tidy values > Merge ----
+  document.querySelectorAll('form[data-confirm]').forEach(function (f) {
+    f.addEventListener('submit', function (e) {
+      if (!e.defaultPrevented && !window.confirm(f.getAttribute('data-confirm'))) e.preventDefault();
+    });
+  });
+
+  // ---- Listing: "New" is only a condition grade for new guns ----
+  // Used: drop the New grade (and reset it to "Not graded yet"). New: offer it again and pick it.
+  var newUsed = document.getElementById('new_used');
+  var grade = document.getElementById('condition');
+  if (newUsed && grade) {
+    newUsed.addEventListener('change', function () {
+      var opt = grade.querySelector('option[value="New"]');
+      if (newUsed.value === 'used') {
+        if (opt) {
+          if (grade.value === 'New') grade.value = '';
+          opt.remove();
+        }
+      } else {
+        if (!opt) {
+          opt = document.createElement('option');
+          opt.value = 'New';
+          opt.textContent = 'New';
+          grade.insertBefore(opt, grade.options[1] || null);  // right after "Not graded yet"
+        }
+        if (grade.value === '') grade.value = 'New';
+      }
     });
   }
 
@@ -57,12 +125,16 @@
     search.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); pick.focus(); } });
   }
 
-  var form = document.querySelector('form[data-resize]');
+  // ---- Listing: "Add photos" above the Create / Save buttons ----
+  // Shows the picked photos, then on submit shrinks them in the browser and sends them with
+  // the rest of the form. Without JavaScript the form still uploads them as they are.
+  var form = document.querySelector('form[data-photo-form]');
   if (!form) return;
-  var input = form.querySelector('input[type=file]');
+  var input = document.getElementById('photos-input');
+  var picks = document.getElementById('photo-picks');
   var status = form.querySelector('.upload-status');
   var MAX = 2400;
-  var BATCH = 4;
+  var clicked = null;
 
   function shrink(file) {
     if (!window.createImageBitmap || !/^image\/(jpeg|png|webp)$/.test(file.type)) return Promise.resolve(file);
@@ -81,46 +153,56 @@
     }).catch(function () { return file; });
   }
 
-  function send(files) {
-    var fd = new FormData();
-    fd.append('csrf', form.querySelector('[name=csrf]').value);
-    fd.append('action', 'upload');
-    files.forEach(function (f) { fd.append('photos[]', f, f.name); });
-    // getAttribute: form.action would return the hidden <input name="action">, not the URL.
-    return fetch(form.getAttribute('action'), { method: 'POST', body: fd, credentials: 'same-origin' }).then(function (r) {
-      if (!r.ok) throw new Error('Server said ' + r.status);
-    });
+  function chosen() {
+    return Array.prototype.slice.call(input.files || []).filter(function (f) { return /^image\//.test(f.type); });
   }
 
-  function upload(list) {
-    var files = Array.prototype.slice.call(list).filter(function (f) { return /^image\//.test(f.type); });
-    if (!files.length) return;
-    input.disabled = true;
-    var done = 0;
+  input.addEventListener('change', function () {
+    picks.innerHTML = '';
+    var files = chosen();
+    files.forEach(function (f) {
+      var fig = document.createElement('figure');
+      var img = document.createElement('img');
+      img.alt = '';
+      img.src = URL.createObjectURL(f);
+      var cap = document.createElement('figcaption');
+      cap.textContent = f.name;
+      fig.appendChild(img);
+      fig.appendChild(cap);
+      picks.appendChild(fig);
+    });
+    status.textContent = files.length ? files.length + ' photo' + (files.length === 1 ? '' : 's') + ' will be added when you save.' : '';
+  });
+
+  // Remember which button was pressed ("Create listing" or "... and add another").
+  form.addEventListener('click', function (e) {
+    var b = e.target.closest('button[type=submit]');
+    if (b) clicked = b;
+  });
+
+  form.addEventListener('submit', function (e) {
+    var files = chosen();
+    if (!files.length || !window.fetch || !window.FormData) return;   // normal submit
+    e.preventDefault();
+    var buttons = form.querySelectorAll('button[type=submit]');
+    buttons.forEach(function (b) { b.disabled = true; });
     status.textContent = 'Preparing ' + files.length + ' photo' + (files.length === 1 ? '' : 's') + '…';
-    var chain = Promise.resolve();
-    for (var i = 0; i < files.length; i += BATCH) {
-      (function (group) {
-        chain = chain.then(function () { return Promise.all(group.map(shrink)); })
-          .then(function (small) { return send(small); })
-          .then(function () { done += group.length; status.textContent = 'Uploaded ' + done + ' of ' + files.length + '…'; });
-      })(files.slice(i, i + BATCH));
-    }
-    chain.then(function () {
-      location.href = location.pathname + location.search + '#photos';
-      location.reload();
-    }).catch(function (e) {
-      status.textContent = 'Upload stopped: ' + e.message + '. Reload the page to see what was saved.';
-      input.disabled = false;
+    var fd = new FormData(form);
+    fd.delete('photos[]');
+    if (clicked && clicked.name) fd.append(clicked.name, clicked.value);
+    fd.append('_js', '1');
+    Promise.all(files.map(shrink)).then(function (small) {
+      small.forEach(function (f) { fd.append('photos[]', f, f.name); });
+      status.textContent = 'Saving and uploading ' + files.length + ' photo' + (files.length === 1 ? '' : 's') + '…';
+      // getAttribute: form.action would return an <input name="action">, not the URL.
+      return fetch(form.getAttribute('action'), { method: 'POST', body: fd, credentials: 'same-origin' });
+    }).then(function (r) {
+      if (!r.ok) throw new Error('the server said ' + r.status);
+      var type = r.headers.get('Content-Type') || '';
+      return type.indexOf('json') >= 0 ? r.json().then(function (j) { location.href = j.redirect; }) : (location.href = r.url);
+    }).catch(function (err) {
+      status.textContent = 'Saving stopped: ' + err.message + '. Nothing may have been saved; try again.';
+      buttons.forEach(function (b) { b.disabled = false; });
     });
-  }
-
-  input.addEventListener('change', function () { upload(input.files); });
-  ['dragenter', 'dragover'].forEach(function (ev) {
-    form.addEventListener(ev, function (e) { e.preventDefault(); form.classList.add('dragover'); });
   });
-  ['dragleave', 'drop'].forEach(function (ev) {
-    form.addEventListener(ev, function (e) { e.preventDefault(); form.classList.remove('dragover'); });
-  });
-  form.addEventListener('drop', function (e) { upload(e.dataTransfer.files); });
 })();

@@ -12,6 +12,42 @@ function load_listing(int $id): ?array
     return $st->fetch() ?: null;
 }
 
+/**
+ * Save the photos[] sent with the form (Add photos, above the Create / Save buttons). The first
+ * becomes the main photo if the listing has none. Returns how many were saved; problems are flashed.
+ */
+function add_listing_photos(PDO $db, int $id): int
+{
+    $files = $_FILES['photos'] ?? null;
+    if (!$files || !is_array($files['name'])) {
+        return 0;
+    }
+    $listing = load_listing($id);
+    $next = (int)$db->query('SELECT COALESCE(MAX(sort_order), 0) FROM listing_photos WHERE listing_id = ' . $id)->fetchColumn();
+    $hasPrimary = (int)$db->query('SELECT COUNT(*) FROM listing_photos WHERE is_primary = 1 AND listing_id = ' . $id)->fetchColumn();
+    $ins = $db->prepare('INSERT INTO listing_photos (listing_id, file_path, caption, sort_order, is_primary) VALUES (?, ?, NULL, ?, ?)');
+    $saved = 0;
+    foreach ($files['name'] as $i => $name) {
+        if ($files['error'][$i] === UPLOAD_ERR_NO_FILE) {
+            continue;   // the file box was left empty
+        }
+        $one = ['name' => $name, 'tmp_name' => $files['tmp_name'][$i], 'error' => $files['error'][$i], 'size' => $files['size'][$i]];
+        try {
+            $path = save_listing_photo($one, photo_folder($listing));
+            $ins->execute([$id, $path, ++$next, $hasPrimary ? 0 : 1]);
+            $hasPrimary = 1;
+            $saved++;
+        } catch (RuntimeException $e) {
+            flash($e->getMessage(), 'err');
+        }
+    }
+    if ($saved) {
+        $db->prepare("UPDATE listings SET updated_at = datetime('now') WHERE id = ?")->execute([$id]);
+    }
+    return $saved;
+}
+$photosSent = fn() => !empty($_FILES['photos']['name']) && array_filter((array)$_FILES['photos']['error'], fn($err) => $err !== UPLOAD_ERR_NO_FILE);
+
 $listing = $id ? load_listing($id) : null;
 if ($id && !$listing) {
     flash('That listing no longer exists.', 'err');
@@ -66,24 +102,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$data['firearm_id']) {
                 throw new RuntimeException('Choose a model.');
             }
+            foreach (['listed_at' => 'Listed date', 'sold_at' => 'Sold date'] as $k => $label) {
+                $d = $data[$k] === null ? false : DateTime::createFromFormat('!Y-m-d', $data[$k]);
+                if ($data[$k] !== null && (!$d || $d->format('Y-m-d') !== $data[$k])) {
+                    throw new RuntimeException($label . ' must be a real date like 2026-09-30.');
+                }
+            }
+            foreach (['price_usd' => 'Price', 'sold_price_usd' => 'Sold price'] as $k => $label) {
+                if ($data[$k] !== null && $data[$k] < 0) {
+                    throw new RuntimeException($label . " can't be negative.");
+                }
+            }
+            if ($data['new_used'] === 'used' && $data['condition'] === 'New') {
+                throw new RuntimeException('A used gun can\'t have the condition grade New. Pick a grade or "Not graded yet".');
+            }
+            $created = !$id;
             if ($id) {
                 $set = implode(', ', array_map(fn($k) => "$k = :$k", array_keys($data)));
                 $db->prepare("UPDATE listings SET $set, updated_at = datetime('now') WHERE id = :id")->execute($data + ['id' => $id]);
-                flash('Listing saved.');
             } else {
                 $cols = implode(', ', array_keys($data));
                 $vals = ':' . implode(', :', array_keys($data));
                 $db->prepare("INSERT INTO listings ($cols) VALUES ($vals)")->execute($data);
                 $id = (int)$db->lastInsertId();
-                flash('Listing created. Add photos below.');
             }
+            $added = add_listing_photos($db, $id);
+            $withPhotos = $added ? ' with ' . $added . ' photo' . ($added === 1 ? '' : 's') : '';
+            flash(($created ? 'Listing created' : 'Listing saved') . $withPhotos . '.');
             if ($assignedStock) {
                 flash('Stock # ' . $assignedStock . ' assigned.');
             }
+            $fa = $db->prepare('SELECT category, ca_rostered FROM firearms WHERE id = ?');
+            $fa->execute([$data['firearm_id']]);
+            $fa = $fa->fetch();
+            if ($fa && leo_only($data['new_used'], $fa['category'], $fa['ca_rostered'])) {
+                flash('This new handgun is off the CA roster, so the site shows it as "' . LEO_LABEL . '".');
+            }
             unset($_SESSION['form']);
+            if ($created) {
+                // "Create listing": back to Listings, where the new one is on top (newest first) and highlighted.
+                // "Create listing and add another": a fresh blank form.
+                redirect(($_POST['after'] ?? '') === 'another' ? url('admin/listing.php') : url('admin/', ['new' => $id]));
+            }
             redirect(url('admin/listing.php', ['id' => $id]));
         } catch (Throwable $e) {
             flash(friendly_db_error($e), 'err');
+            if ($photosSent()) {
+                flash('Nothing was saved, including the photos you picked. Fix the problem above, then choose the photos again.', 'err');
+            }
             redirect($self(['keep' => 1]));
         }
     }
@@ -92,29 +158,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect(url('admin/'));
     }
 
-    if ($action === 'upload') {
-        $files = $_FILES['photos'] ?? null;
-        $saved = 0;
-        if ($files && is_array($files['name'])) {
-            $next = (int)$db->query('SELECT COALESCE(MAX(sort_order), 0) FROM listing_photos WHERE listing_id = ' . $id)->fetchColumn();
-            $hasPrimary = (int)$db->query('SELECT COUNT(*) FROM listing_photos WHERE is_primary = 1 AND listing_id = ' . $id)->fetchColumn();
-            $ins = $db->prepare('INSERT INTO listing_photos (listing_id, file_path, caption, sort_order, is_primary) VALUES (?, ?, NULL, ?, ?)');
-            foreach ($files['name'] as $i => $name) {
-                $one = ['name' => $name, 'tmp_name' => $files['tmp_name'][$i], 'error' => $files['error'][$i], 'size' => $files['size'][$i]];
-                try {
-                    $path = save_listing_photo($one, photo_folder($listing));
-                    $ins->execute([$id, $path, ++$next, $hasPrimary ? 0 : 1]);
-                    $hasPrimary = 1;
-                    $saved++;
-                } catch (RuntimeException $e) {
-                    flash($e->getMessage(), 'err');
-                }
-            }
-        } else {
+    if ($action === 'upload') {   // photos only, without the rest of the form
+        if (!$photosSent()) {
             flash('No photos were received. They may be larger than the server allows.', 'err');
         }
+        $saved = add_listing_photos($db, $id);
         if ($saved) {
-            $db->prepare("UPDATE listings SET updated_at = datetime('now') WHERE id = ?")->execute([$id]);
             flash($saved . ' photo' . ($saved === 1 ? '' : 's') . ' added.');
         }
         redirect($self() . '#photos');
@@ -126,14 +175,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $own = array_column($mine->fetchAll(), 'file_path', 'id');
         $del = array_map('intval', (array)($_POST['delete'] ?? []));
         $primary = (int)($_POST['primary'] ?? 0);
+        $gone = [];   // files are deleted only after the database change is saved
         $db->beginTransaction();
         foreach ($own as $pid => $path) {
             if (in_array($pid, $del, true)) {
                 $db->prepare('DELETE FROM listing_photos WHERE id = ?')->execute([$pid]);
-                delete_photo_files($path);
+                $gone[] = $path;
                 continue;
             }
-            $cap = mb_substr(trim((string)($_POST['caption'][$pid] ?? '')), 0, 120);
+            $cap = $_POST['caption'][$pid] ?? '';
+            $cap = mb_substr(trim(is_string($cap) ? $cap : ''), 0, 120);
             $ord = (int)($_POST['order'][$pid] ?? 0);
             $db->prepare('UPDATE listing_photos SET caption = ?, sort_order = ?, is_primary = ? WHERE id = ?')
                ->execute([$cap === '' ? null : $cap, $ord, $pid === $primary ? 1 : 0, $pid]);
@@ -143,6 +194,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                    AND NOT EXISTS (SELECT 1 FROM listing_photos WHERE listing_id = $id AND is_primary = 1)");
         $db->prepare("UPDATE listings SET updated_at = datetime('now') WHERE id = ?")->execute([$id]);
         $db->commit();
+        array_map('delete_photo_files', $gone);
         flash('Photos updated.');
         redirect($self() . '#photos');
     }
@@ -154,10 +206,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $ph = $db->prepare('SELECT file_path FROM listing_photos WHERE listing_id = ?');
         $ph->execute([$id]);
-        foreach ($ph->fetchAll(PDO::FETCH_COLUMN) as $p) {
-            delete_photo_files($p);
-        }
+        $paths = $ph->fetchAll(PDO::FETCH_COLUMN);
+        $db->beginTransaction();
+        $db->prepare('DELETE FROM listing_photos WHERE listing_id = ?')->execute([$id]);
         $db->prepare('DELETE FROM listings WHERE id = ?')->execute([$id]);
+        $db->commit();
+        array_map('delete_photo_files', $paths);   // only once the listing is really gone
         flash('Listing deleted.');
         redirect(url('admin/'));
     }
@@ -165,7 +219,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // ---------------- form ----------------
-$v = $listing ?? ['status' => 'draft', 'new_used' => 'used', 'consignment' => 0, 'firearm_id' => (int)($_GET['firearm_id'] ?? 0)];
+// A new listing starts as New / condition New (Michael, 2026-09-30); change both for used guns.
+$v = $listing ?? ['status' => 'draft', 'new_used' => 'new', 'condition' => 'New', 'consignment' => 0, 'firearm_id' => (int)($_GET['firearm_id'] ?? 0)];
 if (isset($_GET['keep']) && !empty($_SESSION['form'])) {
     $v = array_merge($v, $_SESSION['form']);
 }
@@ -211,7 +266,7 @@ admin_header($heading, 'listings');
   <?php endif; ?>
 </div>
 
-<form method="post" action="<?= e($self()) ?>" class="admin-form">
+<form method="post" action="<?= e($self()) ?>" class="admin-form" enctype="multipart/form-data" data-photo-form>
   <?= csrf_field() ?>
   <input type="hidden" name="action" value="save">
 
@@ -264,7 +319,7 @@ admin_header($heading, 'listings');
         <select class="select" id="new_used" name="new_used">
           <?= opt('used', 'Used', $v['new_used'] ?? 'used') ?><?= opt('new', 'New', $v['new_used'] ?? 'used') ?>
         </select>
-        <span class="hint">New handguns must be on the CA roster.</span>
+        <span class="hint">A new handgun whose model is off the CA roster is shown as "LEO Sales Only".</span>
       </div>
       <div class="field">
         <label for="price_usd">Price ($)</label>
@@ -285,7 +340,13 @@ admin_header($heading, 'listings');
         <label for="condition">Condition grade</label>
         <select class="select" id="condition" name="condition">
           <?= opt('', 'Not graded yet', $v['condition'] ?? '') ?>
-          <?php foreach (CONDITIONS as $c) echo opt($c, $c, $v['condition'] ?? ''); ?>
+          <?php foreach (CONDITIONS as $c) {
+              // "New" is only a grade for new guns (kept visible if an older used listing still has it, so it isn't lost silently).
+              if ($c === 'New' && ($v['new_used'] ?? 'used') === 'used' && ($v['condition'] ?? '') !== 'New') {
+                  continue;
+              }
+              echo opt($c, $c, $v['condition'] ?? '');
+          } ?>
         </select>
       </div>
       <div class="field">
@@ -350,23 +411,30 @@ admin_header($heading, 'listings');
     </div>
   </fieldset>
 
-  <div class="save-bar"><button class="btn btn-accent" type="submit"><?= $listing ? 'Save changes' : 'Create listing' ?></button>
+  <fieldset id="add-photos">
+    <legend>Add photos</legend>
+    <p class="muted small" style="margin-top:0">Suggested shots: left side, right side, top, bore and muzzle, included items. They are saved with the listing, resized, and location data is removed.
+      <?php if ($photos): ?>This listing has <?= count($photos) ?> photo<?= count($photos) === 1 ? '' : 's' ?>; set the main photo, captions and order under Photos below.
+      <?php else: ?>A new gun without photos shows the model's stock photo on the site until you add some; used guns never do.<?php endif; ?></p>
+    <input class="photo-input" id="photos-input" type="file" name="photos[]" accept="image/jpeg,image/png,image/webp" multiple>
+    <p class="upload-status muted small" aria-live="polite"></p>
+    <div class="photo-picks" id="photo-picks"></div>
+  </fieldset>
+
+  <div class="save-bar">
+    <?php if ($listing): ?>
+      <button class="btn btn-accent" type="submit">Save changes</button>
+    <?php else: ?>
+      <button class="btn btn-accent" type="submit" name="after" value="list">Create listing</button>
+      <button class="btn btn-outline" type="submit" name="after" value="another">Create listing and add another</button>
+    <?php endif; ?>
     <a class="link-btn" href="<?= e(url('admin/')) ?>">Cancel</a></div>
 </form>
 
 <?php if ($listing): ?>
 <section id="photos" class="admin-section">
   <h2 class="section-title" style="font-size:28px">Photos</h2>
-  <p class="muted">Suggested shots: left side, right side, top, bore and muzzle, included items. Photos are resized and location data is removed automatically.</p>
-
-  <form method="post" action="<?= e($self()) ?>" enctype="multipart/form-data" class="upload-form" data-resize>
-    <?= csrf_field() ?>
-    <input type="hidden" name="action" value="upload">
-    <label for="photos-input" class="btn btn-dark">Choose photos…</label>
-    <input id="photos-input" class="sr-only" type="file" name="photos[]" accept="image/jpeg,image/png,image/webp" multiple>
-    <span class="upload-status muted" aria-live="polite"></span>
-    <noscript><button class="btn btn-outline" type="submit">Upload</button></noscript>
-  </form>
+  <?php if (!$photos): ?><p class="muted">No photos yet. Add them in <a href="#add-photos">Add photos</a> above the Save button.</p><?php endif; ?>
 
   <?php if ($photos): ?>
   <form method="post" action="<?= e($self()) ?>">

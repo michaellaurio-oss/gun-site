@@ -95,7 +95,7 @@ try {
     foreach ($f in Get-ChildItem $public -Recurse -File -Force) {
         $rel = $f.FullName.Substring($public.Length + 1).Replace('\', '/')
         if ($rel -match '^data/' -and $rel -ne 'data/.htaccess') { continue }
-        if ($rel -match '^photos/' -or $rel -match '^assets/demo/') { continue }
+        if (($rel -match '^photos/' -and $rel -ne 'photos/.htaccess') -or $rel -match '^assets/demo/') { continue }
         if ($rel -eq 'app/config.local.php' -or $rel -match '^zz-') { continue }
         $hash = (Get-FileHash $f.FullName -Algorithm SHA256).Hash
         $new[$rel] = $hash
@@ -107,6 +107,9 @@ try {
     if ($DryRun) { return }
 
     # One file per curl call so every upload is checked; the server size must match afterwards.
+    # 'Continue' here: with 'Stop', curl's stderr (e.g. a timeout) aborted the whole deploy in
+    # Windows PowerShell 5.1 instead of retrying, and the progress below wasn't saved.
+    $ErrorActionPreference = 'Continue'
     $failed = @()
     foreach ($t in $todo) {
         $size = (Get-Item -LiteralPath $t[0] -Force).Length

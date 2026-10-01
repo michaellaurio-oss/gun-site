@@ -2,11 +2,13 @@
 require __DIR__ . '/app/bootstrap.php';
 
 $cards = array_map('card_data', public_listings());
-$q = trim((string)($_GET['q'] ?? ''));
-$types = (array)($_GET['type'] ?? []);
-$active = count($types) === 1 ? strtolower((string)$types[0]) : 'inventory';
-if (!in_array($active, ['handgun', 'rifle', 'shotgun'], true)) {
-    $active = 'inventory';
+$q = trim(get_str('q', ''));
+// Header: "New Inventory" / "Used Inventory" are this page with the New / Used filter ticked.
+$newUsed = (array)($_GET['newused'] ?? []);
+$active = count($newUsed) === 1 && in_array($newUsed[0], ['New', 'Used'], true) ? strtolower((string)$newUsed[0]) : '';
+$leoOnly = ($_GET['leo'] ?? '') === '1';   // New Inventory > LEO
+if ($leoOnly) {
+    $active = 'new';
 }
 
 $status = [];
@@ -16,11 +18,11 @@ foreach (['available', 'on_hold', 'pending', 'coming_soon'] as $s) {
 $data = [
     'items'  => $cards,
     'status' => $status,
-    'notes'  => ['offRoster' => OFF_ROSTER_NOTE, 'capacity' => CA_CAPACITY_NOTE],
+    'notes'  => ['offRoster' => OFF_ROSTER_NOTE, 'capacity' => CA_CAPACITY_NOTE, 'stockPhoto' => STOCK_PHOTO_NOTE, 'leo' => LEO_NOTE, 'leoLabel' => LEO_LABEL],
 ];
 
 // Server-rendered first page for browsers without JavaScript (JS replaces it).
-$fallback = array_slice($cards, 0, 24);
+$fallback = array_slice($leoOnly ? array_values(array_filter($cards, fn($c) => $c['leo'])) : $cards, 0, 24);
 
 page_header('Inventory', $active, ['q' => $q, 'description' => 'Current inventory of new and used firearms.']);
 ?>
@@ -70,7 +72,7 @@ page_header('Inventory', $active, ['q' => $q, 'description' => 'Current inventor
       <p class="sr-only" aria-live="polite" id="results-live"></p>
       <div class="no-results" id="no-results" hidden>No guns match these filters. Try removing one.</div>
       <div class="inv-grid" id="grid">
-        <?php foreach ($fallback as $c) echo render_card($c); ?>
+        <?php foreach ($fallback as $c) echo render_card($c, true, true); ?>
       </div>
       <?php if (!$cards): ?>
         <div class="empty-note" id="empty-inventory">No guns are listed right now. Call <?= phone_link() ?> to ask what's in the shop.</div>
@@ -93,6 +95,8 @@ page_header('Inventory', $active, ['q' => $q, 'description' => 'Current inventor
     </div>
   </div>
 </div>
+<div id="cmp-tray" data-compare-url="<?= e(url('compare.php')) ?>" hidden></div>
 <script type="application/json" id="inv-data"><?= json_encode($data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?></script>
+<script src="<?= e(asset('assets/js/compare.js')) ?>" defer></script>
 <script src="<?= e(asset('assets/js/inventory.js')) ?>" defer></script>
 <?php page_footer();

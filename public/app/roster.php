@@ -109,13 +109,18 @@ function roster_import(PDO $db, array $rows): array
 {
     $rows = roster_dedupe($rows);
     $db->beginTransaction();
-    $db->exec('DELETE FROM ca_roster');
-    $ins = $db->prepare('INSERT INTO ca_roster (detail_path, manufacturer, model, model_base, material, gun_type, barrel_length_in, caliber, expires_on, court_order)
-                         VALUES (:detail_path, :manufacturer, :model, :model_base, :material, :gun_type, :barrel_length_in, :caliber, :expires_on, :court_order)');
-    foreach ($rows as $r) {
-        $ins->execute($r);
+    try {
+        $db->exec('DELETE FROM ca_roster');
+        $ins = $db->prepare('INSERT INTO ca_roster (detail_path, manufacturer, model, model_base, material, gun_type, barrel_length_in, caliber, expires_on, court_order)
+                             VALUES (:detail_path, :manufacturer, :model, :model_base, :material, :gun_type, :barrel_length_in, :caliber, :expires_on, :court_order)');
+        foreach ($rows as $r) {
+            $ins->execute($r);
+        }
+        $db->commit();
+    } catch (Throwable $e) {
+        $db->rollBack();   // keep the previous roster copy rather than a half-imported one
+        throw $e;
     }
-    $db->commit();
     return ['rows' => count($rows)] + roster_recheck($db);
 }
 
@@ -213,10 +218,6 @@ function roster_tokens(string $model, string $make = ''): array
     return array_values(array_diff(array_unique($m[0]), ['gen', 'the', 'and', 'with']));
 }
 
-/**
- * Best roster rows for a firearm: [['row' => ..., 'score' => 0-100], ...], best first.
- * 100 = same make and same model name (ignoring SKU, colour, punctuation).
- */
 /** Precompute match keys for roster rows (call once, pass the result to roster_matches). */
 function roster_prepare(array $roster): array
 {
@@ -228,11 +229,39 @@ function roster_prepare(array $roster): array
     return $roster;
 }
 
+/** Caliber for comparing with the roster: ".45 AUTO" = ".45 ACP", "9MM" = "9mm Luger" = "9x19mm". '' if unknown. */
+function roster_caliber_key(?string $caliber): string
+{
+    $c = strtolower((string)canonical_value('caliber', $caliber));
+    $c = str_replace(['luger', 'parabellum', '9x19', 'auto', 'spl', 'mag.', 'mag'], ['', '', '9mm', 'acp', 'special', 'magnum', 'magnum'], $c);
+    $c = str_replace('magnumnum', 'magnum', $c);
+    return preg_replace('/[^a-z0-9+]/', '', $c);
+}
+
+/** Colour / finish words in a model name ("FDE", "Black", "Stainless"...), normalised and sorted. */
+function roster_finish_words(string $model): array
+{
+    $map = ['flat dark earth' => 'fde', 'two tone' => 'twotone', 'two-tone' => 'twotone', 'grey' => 'gray', 'blue' => 'blued'];
+    preg_match_all('/\b(?:black|od|fde|flat dark earth|green|grey|gray|tan|coyote|two[- ]tone|stainless|blued?|satin|matte)\b/i', $model, $m);
+    $out = array_values(array_unique(array_map(fn($w) => $map[strtolower($w)] ?? strtolower($w), $m[0])));
+    sort($out);
+    return $out;
+}
+
+/**
+ * Best roster rows for a firearm: [['row' => ..., 'score' => 0-100], ...], best first.
+ * 100 ("Exact", the only score "Confirm all" acts on) = same make and model name AND the same
+ * caliber AND no colour / finish difference, because the roster certifies specific variants.
+ * Same name but a different or unknown caliber, or a different finish, scores 90 ("Possible"):
+ * a person has to confirm it.
+ */
 function roster_matches(array $firearm, array $roster, int $limit = 3): array
 {
     $make = roster_make_key($firearm['manufacturer']);
     $mk = roster_model_key($firearm['model'], $firearm['manufacturer']);
     $mt = roster_tokens($firearm['model'], $firearm['manufacturer']);
+    $fCal = roster_caliber_key($firearm['caliber'] ?? null);
+    $fFinish = roster_finish_words($firearm['model']);
     $out = [];
     foreach ($roster as $r) {
         if (($r['_make'] ?? roster_make_key($r['manufacturer'])) !== $make) {
@@ -240,7 +269,9 @@ function roster_matches(array $firearm, array $roster, int $limit = 3): array
         }
         $rk = $r['_key'] ?? roster_model_key($r['model_base'], $r['manufacturer']);
         if ($mk !== '' && $rk === $mk) {
-            $score = 100;
+            $sameCaliber = $fCal !== '' && $fCal === roster_caliber_key($r['caliber'] ?? null);
+            $sameFinish = $fFinish === roster_finish_words($r['model_base'] ?? $r['model']);   // model_base: without the frame material
+            $score = $sameCaliber && $sameFinish ? 100 : 90;
         } elseif ($mk !== '' && $rk !== '' && (strpos($rk, $mk) === 0 || strpos($mk, $rk) === 0)) {
             $score = 60 + (int)(30 * min(strlen($mk), strlen($rk)) / max(strlen($mk), strlen($rk)));
         } else {
@@ -409,7 +440,7 @@ function roster_copy_to_firearms(PDO $db): array
         }
         $slugs[$slug] = true;
         $ins->execute([
-            $slug, $g['make'], $g['name'], $g['caliber'],
+            $slug, $g['make'], $g['name'], canonical_value('caliber', $g['caliber']),
             $types === ['Revolver'] ? 'Revolver' : null,
             count($barrels) === 1 && $barrels[0] !== '' ? (float)$first['barrel_length_in'] : null,
             count($materials) === 1 && $materials[0] !== '' ? $materials[0] : null,

@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Compare guns</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'IBM Plex Sans',system-ui,sans-serif;color:#16181a;background:#f7f6f3}
+a{color:#16181a;text-decoration:none}a:hover{color:#8f3f12}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+</style>
+</helmet>
+<div style="width: 1440px; height: 2240px; box-sizing: border-box; display: flex; flex-direction: column; background: #f7f6f3; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #16181a;">
+
+<!-- Header (as live site) -->
+<header style="display: flex; align-items: center; gap: 48px; height: 84px; flex-shrink: 0; padding: 0 120px; border-bottom: 1px solid #e3e1dc; background: #ffffff;">
+<a href="#" style="font-family: 'Archivo', sans-serif; font-weight: 800; font-size: 22px; letter-spacing: -0.02em;">Crosshairs Gun Store</a>
+<nav aria-label="Main" style="display: flex; gap: 32px; font-size: 15px; font-weight: 500;">
+<a href="InventoryCompare.dc.html">Inventory</a>
+<a href="#">Handguns</a>
+<a href="#">Rifles</a>
+<a href="#">Shotguns</a>
+<a href="#">How to buy</a>
+<a href="#">About</a>
+</nav>
+<div style="margin-left: auto; display: flex; align-items: center; gap: 8px; width: 300px; height: 44px; box-sizing: border-box; padding: 0 14px; border: 1px solid #d6d3cc; border-radius: 8px; background: #f7f6f3; color: #5a5e63; font-size: 14px;">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+Search make, model, caliber
+</div>
+</header>
+
+<!-- Title + controls -->
+<section style="display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 40px 120px 28px;">
+<div>
+<div style="font-size: 14px; color: #5a5e63;"><a href="#" style="color: #5a5e63;">Home</a> / <a href="InventoryCompare.dc.html" style="color: #5a5e63;">Inventory</a> / Compare</div>
+<h1 style="margin: 10px 0 0; font-family: 'Archivo', sans-serif; font-weight: 800; font-size: 52px; line-height: 1.05; letter-spacing: -0.03em;">Compare</h1>
+<p style="margin: 8px 0 0; font-size: 16px; color: #5a5e63;">{{subText}}</p>
+</div>
+<div style="display: flex; align-items: center; gap: 20px;">
+<label style="display: inline-flex; align-items: center; gap: 10px; min-height: 44px; font-size: 15px; font-weight: 500; cursor: pointer;">
+<input type="checkbox" checked="{{diffOnly}}" onChange="{{toggleDiff}}" style="width: 18px; height: 18px; margin: 0; accent-color: #16181a;">
+Show differences only
+</label>
+<button type="button" onClick="{{copyLink}}" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border: 1px solid #c9c5bc; border-radius: 8px; background: #ffffff; font: inherit; font-size: 14px; font-weight: 600; color: #16181a; cursor: pointer;">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"></path><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"></path></svg>
+{{copyText}}</button>
+<button type="button" onClick="{{clearAll}}" style="min-height: 44px; padding: 0 4px; border: 0; background: transparent; font: inherit; font-size: 14px; color: #5a5e63; text-decoration: underline; cursor: pointer;">Clear all</button>
+</div>
+</section>
+
+<sc-if value="{{tooFew}}" hint-placeholder-val="{{ false }}">
+<div style="margin: 0 120px; padding: 64px 24px; border: 1px dashed #c9c5bc; border-radius: 12px; text-align: center; color: #5a5e63; font-size: 16px;">Pick at least 2 guns to compare. <a href="InventoryCompare.dc.html" style="color: #16181a; font-weight: 600; text-decoration: underline;">Back to inventory</a></div>
+</sc-if>
+
+<sc-if value="{{enough}}" hint-placeholder-val="{{ true }}">
+<div style="margin: 0 120px; border: 1px solid #e3e1dc; border-radius: 12px; background: #ffffff; overflow: hidden;">
+
+<!-- Gun header row (sticky under the site header on the live site) -->
+<div style="display: grid; grid-template-columns: 200px repeat({{cols}}, minmax(0, 1fr)); border-bottom: 1px solid #d6d3cc;">
+<div style="padding: 20px; display: flex; align-items: flex-end; font-size: 13px; color: #6b6f74;">{{shownText}}</div>
+<sc-for list="{{heads}}" as="h" hint-placeholder-count="4">
+<sc-if value="{{h.filled}}" hint-placeholder-val="{{ true }}">
+<div style="position: relative; display: flex; flex-direction: column; gap: 10px; padding: 20px 18px; border-left: 1px solid #eeece7; min-width: 0;">
+<button type="button" onClick="{{h.remove}}" aria-label="Remove {{h.name}} from compare" style="position: absolute; top: 26px; right: 24px; z-index: 2; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 999px; background: rgba(255,255,255,0.92); color: #16181a; cursor: pointer; box-shadow: 0 1px 4px rgba(22,24,26,0.15);">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</button>
+<div style="aspect-ratio: 4 / 3; border-radius: 10px; background: #ebe8e2; overflow: hidden; display: flex; align-items: center; justify-content: center; color: #6b6f74; font-size: 13px;">
+<sc-if value="{{h.hasPhoto}}" hint-placeholder-val="{{ false }}"><img src="/_blob/624af96b02d73c3b890a4338062e328e" alt="" style="width: 100%; height: 100%; object-fit: cover;"></sc-if>
+<sc-if value="{{h.noPhoto}}" hint-placeholder-val="{{ true }}"><span>Photo coming soon</span></sc-if>
+</div>
+<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+<span style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; background: {{h.stBg}}; color: {{h.stFg}}; font-size: 12px; font-weight: 600;"><span style="width: 7px; height: 7px; border-radius: 999px; background: {{h.stFg}};"></span>{{h.status}}</span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #6b6f74;">#{{h.stock}}</span>
+</div>
+<div>
+<div style="font-size: 13px; color: #5a5e63;">{{h.make}}</div>
+<a href="#" style="display: block; margin-top: 2px; font-family: 'Archivo', sans-serif; font-weight: 700; font-size: 20px; line-height: 1.2; letter-spacing: -0.01em;">{{h.model}}</a>
+</div>
+<div style="font-family: 'Archivo', sans-serif; font-weight: 800; font-size: 28px; letter-spacing: -0.02em;">{{h.price}}</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+<a href="#" style="display: flex; align-items: center; justify-content: center; min-height: 44px; border-radius: 8px; background: #b4541a; color: #ffffff; font-weight: 600; font-size: 14px;">Ask</a>
+<a href="#" style="display: flex; align-items: center; justify-content: center; min-height: 44px; border-radius: 8px; border: 1px solid #c9c5bc; font-weight: 600; font-size: 14px;">View</a>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{h.empty}}" hint-placeholder-val="{{ false }}">
+<a href="InventoryCompare.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; margin: 20px 18px; border: 1px dashed #c9c5bc; border-radius: 10px; color: #5a5e63; font-size: 14px; font-weight: 600;">
+<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+Add a gun</a>
+</sc-if>
+</sc-for>
+</div>
+
+<!-- Rows -->
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="20">
+<sc-if value="{{r.isGroup}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 18px 20px 10px; background: #f7f6f3; border-top: 1px solid #e3e1dc; border-bottom: 1px solid #e3e1dc; font-family: 'Archivo', sans-serif; font-weight: 700; font-size: 16px;">{{r.label}}</div>
+</sc-if>
+<sc-if value="{{r.isRow}}" hint-placeholder-val="{{ true }}">
+<div style="display: grid; grid-template-columns: 200px repeat({{cols}}, minmax(0, 1fr)); border-bottom: 1px solid #eeece7; font-size: 14px;">
+<div style="padding: 13px 20px; color: #43474c; font-weight: 500;">{{r.label}}</div>
+<sc-for list="{{r.cells}}" as="c" hint-placeholder-count="4">
+<div style="padding: 13px 18px; border-left: 1px solid #eeece7; min-width: 0;">
+<div style="font-family: {{c.font}}; font-weight: 500; line-height: 1.45; white-space: pre-line; color: {{c.color}};">{{c.v}}</div>
+<sc-if value="{{c.hasSub}}" hint-placeholder-val="{{ false }}"><div style="margin-top: 2px; font-size: 12px; line-height: 1.35; color: #6b6f74;">{{c.sub}}</div></sc-if>
+</div>
+</sc-for>
+</div>
+</sc-if>
+</sc-for>
+
+<div style="padding: 16px 20px; font-size: 13px; color: #5a5e63;">Listing details are for each specific gun. Specifications are factory figures for the model.</div>
+</div>
+</sc-if>
+
+<!-- Footer -->
+<footer style="margin-top: auto; flex-shrink: 0; padding: 40px 120px; background: #ffffff; border-top: 1px solid #e3e1dc; display: flex; justify-content: space-between; font-size: 14px; color: #43474c;">
+<div style="font-family: 'Archivo', sans-serif; font-weight: 800; font-size: 18px; color: #16181a;">Crosshairs Gun Store</div>
+<div>Torrance, CA · Tue–Sat 11 AM–6 PM</div>
+</footer>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":2240}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const removed = s.removed || [];
+    const MAX = 4;
+    const DASH = '—';
+    const ST = {
+      available: { label: 'Available', fg: '#1f5a40', bg: '#e4efe9' },
+      on_hold: { label: 'On hold', fg: '#7a4f00', bg: '#fbeed3' }
+    };
+    // Mockup data: CZ SP-01 is the real live listing; the others are sample listings using real model specs from the database.
+    const GUNS = [
+      { id: 'A', make: 'CZ', model: '75 SP-01', stock: 'U-0001', price: '$1,700', status: 'available', photo: true, d: {
+        newused: 'Used', condition: 'Excellent', rounds: '~1,000', roster: 'Off roster', mods: 'Cajun Gun Works Pro Package\nNight Fision night sights', included: 'Original packaging',
+        type: 'Handgun', caliber: '9mm Luger', action: 'Semi-auto, DA/SA hammer', capacity: '10 rounds', barrel: '4.6 in · 116.8 mm', length: '8.2 in · 208.3 mm', height: '5.8 in · 147.3 mm', width: '1.5 in · 38.1 mm',
+        weight: '41.3 oz · 1,171 g', weightSub: 'with empty magazine', trigger: '4.5 lb SA · 10.3 lb DA', triggerSub: '2.04 kg · 4.67 kg', frame: 'Steel', sights: 'Fixed', msrp: '$999' } },
+      { id: 'B', make: 'Glock', model: 'G19', stock: 'U-0014', price: '$499', status: 'available', d: {
+        newused: 'Used', condition: 'Very Good', rounds: '~500', roster: 'On roster', mods: 'None', included: '2 magazines, case',
+        type: 'Handgun', caliber: '9mm Luger', action: 'Semi-auto, striker-fired', capacity: '15 rounds', capacitySub: '(10 round limit in CA)', barrel: '4.02 in · 102.1 mm', length: '7.36 in · 186.9 mm', height: '5.04 in · 128.0 mm', width: '1.26 in · 32.0 mm',
+        weight: '23.63 oz · 670 g', weightSub: 'with empty magazine', trigger: '6.29 lb', triggerSub: '2.85 kg', frame: 'Polymer', sights: DASH, msrp: DASH } },
+      { id: 'C', make: 'CZ', model: '75 D PCR Compact', stock: 'U-0022', price: '$649', status: 'on_hold', d: {
+        newused: 'Used', condition: 'Like New', rounds: '~200', roster: 'Off roster', mods: 'None', included: 'Original box, 2 magazines',
+        type: 'Handgun', caliber: '9mm Luger', action: 'Semi-auto, DA/SA with decocker', capacity: '10 rounds', barrel: '3.75 in · 95.3 mm', length: '7.25 in · 184.1 mm', height: '5.0 in · 127.0 mm', width: '1.4 in · 35.6 mm',
+        weight: '27.5 oz · 780 g', weightSub: 'with empty magazine', trigger: '4.5 lb SA · 10.3 lb DA', triggerSub: '2.04 kg · 4.67 kg', frame: '7075-T6 aluminum', sights: 'Fixed', msrp: '$899' } },
+      { id: 'D', make: 'Marlin', model: '1894 Trapper', stock: 'N-0103', price: '$1,399', status: 'available', d: {
+        newused: 'New', condition: 'New', rounds: '0', roster: 'Not required (rifle)', mods: 'None', included: 'Factory box',
+        type: 'Rifle', caliber: '.357 Magnum / .38 Special', action: 'Lever action', capacity: '8 rounds', barrel: '16.1 in · 408.9 mm', length: '33.25 in · 844.5 mm', height: DASH, width: DASH,
+        weight: '6.3 lb · 2,858 g', weightSub: 'unloaded', trigger: DASH, frame: 'Stainless steel', sights: 'Skinner peep rear, blade front', msrp: '$1,599' } }
+    ];
+    const ROWS = [
+      { group: 'Listing' },
+      { k: 'newused', label: 'New / used' },
+      { k: 'condition', label: 'Condition' },
+      { k: 'rounds', label: 'Est. round count', mono: true },
+      { k: 'roster', label: 'CA roster' },
+      { k: 'mods', label: 'Modifications' },
+      { k: 'included', label: 'Included' },
+      { group: 'Specifications' },
+      { k: 'type', label: 'Type' },
+      { k: 'caliber', label: 'Caliber' },
+      { k: 'action', label: 'Action' },
+      { k: 'capacity', label: 'Capacity' },
+      { k: 'barrel', label: 'Barrel length', mono: true },
+      { k: 'length', label: 'Overall length', mono: true },
+      { k: 'height', label: 'Height', mono: true },
+      { k: 'width', label: 'Width', mono: true },
+      { k: 'weight', label: 'Weight', mono: true },
+      { k: 'trigger', label: 'Trigger pull', mono: true },
+      { k: 'frame', label: 'Frame' },
+      { k: 'sights', label: 'Sights' },
+      { k: 'msrp', label: 'MSRP (new)', mono: true }
+    ];
+    const shown = GUNS.filter((g) => removed.indexOf(g.id) < 0);
+    const n = shown.length;
+    const cols = n < MAX ? n + 1 : n;
+    const diffOnly = !!s.diff;
+    const rows = [];
+    ROWS.forEach((r) => {
+      if (r.group) { rows.push({ isGroup: true, isRow: false, label: r.group, cells: [] }); return; }
+      const vals = shown.map((g) => g.d[r.k] || DASH);
+      const differs = new Set(vals).size > 1;
+      if (diffOnly && !differs) return;
+      const cells = shown.map((g) => {
+        const v = g.d[r.k] || DASH;
+        const sub = g.d[r.k + 'Sub'] || '';
+        return { v, sub, hasSub: !!sub, font: r.mono && v !== DASH ? "'IBM Plex Mono', monospace" : "'IBM Plex Sans', sans-serif", color: v === DASH ? '#9a9da1' : '#16181a' };
+      });
+      if (n < MAX) cells.push({ v: '', sub: '', hasSub: false, font: 'inherit', color: '#16181a' });
+      rows.push({ isGroup: false, isRow: true, label: r.label, cells });
+    });
+    // drop a group heading left with no rows under it
+    const clean = rows.filter((r, i) => !(r.isGroup && (i === rows.length - 1 || rows[i + 1].isGroup)));
+    const heads = shown.map((g) => {
+      const st = ST[g.status];
+      return { filled: true, empty: false, make: g.make, model: g.model, name: g.make + ' ' + g.model, stock: g.stock, price: g.price,
+        status: st.label, stFg: st.fg, stBg: st.bg, hasPhoto: !!g.photo, noPhoto: !g.photo,
+        remove: () => this.setState({ removed: removed.concat([g.id]), copied: false }) };
+    });
+    if (n < MAX) heads.push({ filled: false, empty: true, make: '', model: '', name: '', stock: '', price: '', status: '', stFg: '', stBg: '', hasPhoto: false, noPhoto: false, remove: () => {} });
+    return {
+      subText: n + ' gun' + (n === 1 ? '' : 's') + ' side by side',
+      shownText: diffOnly ? 'Showing differences only' : 'All details',
+      cols,
+      heads,
+      rows: clean,
+      enough: n >= 2,
+      tooFew: n < 2,
+      diffOnly,
+      toggleDiff: () => this.setState({ diff: !diffOnly }),
+      copyText: s.copied ? 'Link copied' : 'Copy link',
+      copyLink: () => this.setState({ copied: true }),
+      clearAll: () => this.setState({ removed: GUNS.map((g) => g.id) })
+    };
+  }
+}
+</script>
+</body>
+</html>

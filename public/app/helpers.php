@@ -1,6 +1,20 @@
 <?php
 // Formatting and small shared helpers.
 
+/** A query-string value as text. Arrays (?stock[]=x) become the default instead of "Array" or a crash. */
+function get_str(string $key, string $default = ''): string
+{
+    $v = $_GET[$key] ?? $default;
+    return is_string($v) ? $v : $default;
+}
+
+/** Like get_str(), but also looks in the posted form (query string first). */
+function req_str(string $key, string $default = ''): string
+{
+    $v = $_GET[$key] ?? $_POST[$key] ?? $default;
+    return is_string($v) ? $v : $default;
+}
+
 function e($value): string
 {
     return htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -43,6 +57,22 @@ function thumb_url(?string $path): ?string
         }
     }
     return photo_url($path);
+}
+
+const STOCK_PHOTO_NOTE = "Stock photo from the manufacturer. It may not match this exact variant. Check the manufacturer's website or come in to see it.";
+
+/**
+ * Manufacturer stock photo of a firearm model: stock-photos/<slug>.jpg (and <slug>-sm.jpg),
+ * fetched with dev/fetch_stock_photos.php or uploaded in Admin > Firearms. NULL if none.
+ */
+function stock_photo_url(?string $slug, bool $small = false): ?string
+{
+    if ($slug === null || !preg_match('~^[a-z0-9-]+$~', $slug)) {
+        return null;
+    }
+    $rel = 'stock-photos/' . $slug . ($small ? '-sm' : '') . '.jpg';
+    $file = __DIR__ . '/../' . $rel;
+    return is_file($file) ? url($rel) . '?v=' . filemtime($file) : null;
 }
 
 /** Number without trailing zeros: 4.60 -> "4.6", 1154 -> "1,154". */
@@ -117,6 +147,44 @@ function status_info(string $status): ?array
 
 const OFF_ROSTER_NOTE = 'Not on current CA handgun roster';
 const CA_CAPACITY_NOTE = '(10 round limit in CA)';
+const LEO_LABEL = 'LEO Sales Only';
+const LEO_NOTE = 'New handgun not on the current CA handgun roster: available to qualifying law enforcement buyers only.';
+
+/**
+ * "LEO Sales Only": a NEW handgun whose model is marked off the CA roster (Michael, 2026-09-30).
+ * Worked out, not stored, so it follows the model's roster status. Unchecked (NULL) models aren't flagged.
+ */
+function leo_only(?string $newUsed, ?string $category, $caRostered): bool
+{
+    return $newUsed === 'new' && $category === 'handgun' && $caRostered !== null && (int)$caRostered === 0;
+}
+
+/** "LEO Sales Only" badge with LEO_NOTE on hover/focus. $class: extra classes (placement, tip-below...). */
+function leo_badge(string $class = ''): string
+{
+    return '<span class="leo-badge ' . e($class) . '">' . tooltip(e(LEO_LABEL) . icon('info', 13), LEO_NOTE, 'leo-badge-btn') . '</span>';
+}
+
+/**
+ * One spelling per caliber / action: a known alias (value_aliases, any capitals) becomes its
+ * canonical value, e.g. ".38 Spl" -> ".38 Special". Unknown values are only trimmed.
+ * Merges are made in Admin > Firearms > Tidy values (migration 006 seeded the first ones).
+ */
+function canonical_value(string $field, ?string $value): ?string
+{
+    $v = trim((string)$value);
+    if ($v === '') {
+        return null;
+    }
+    try {
+        $st = db()->prepare('SELECT canonical FROM value_aliases WHERE field = ? AND alias = ?');
+        $st->execute([$field, $v]);
+        $c = $st->fetchColumn();
+    } catch (PDOException $e) {
+        $c = false;   // value_aliases not created yet (before migration 006)
+    }
+    return $c !== false ? (string)$c : $v;
+}
 
 /** Roster facet value for a listing. */
 function roster_label(string $category, $caRostered): string
@@ -159,6 +227,8 @@ function icon(string $name, int $size = 18, string $extra = ''): string
         'graded'  => '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>',
         'ruler'   => '<path d="M3 17l14-14 4 4L7 21H3z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/>',
         'menu'    => '<path d="M4 7h16M4 12h16M4 17h16"/>',
+        'plus'    => '<path d="M12 5v14M5 12h14"/>',
+        'link'    => '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
     ];
     return '<svg class="icon ' . e($extra) . '" width="' . $size . '" height="' . $size . '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'
         . ($paths[$name] ?? '') . '</svg>';

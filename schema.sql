@@ -17,9 +17,13 @@ DROP TABLE IF EXISTS login_attempts;
 DROP TABLE IF EXISTS ca_roster;
 DROP TABLE IF EXISTS schema_migrations;
 DROP TABLE IF EXISTS contact_messages;
+DROP TABLE IF EXISTS value_aliases;
 DROP TRIGGER IF EXISTS trg_listings_new_offroster_ins;
 DROP TRIGGER IF EXISTS trg_listings_new_offroster_upd;
 DROP TRIGGER IF EXISTS trg_firearms_offroster_with_new;
+DROP TRIGGER IF EXISTS trg_listings_new_unchecked_ins;
+DROP TRIGGER IF EXISTS trg_listings_new_unchecked_upd;
+DROP TRIGGER IF EXISTS trg_firearms_unchecked_with_new;
 DROP VIEW  IF EXISTS listings_public;
 DROP TABLE IF EXISTS listing_photos;
 DROP TABLE IF EXISTS listings;
@@ -140,30 +144,33 @@ CREATE TABLE listings (
 CREATE INDEX idx_listings_firearm ON listings(firearm_id);
 CREATE INDEX idx_listings_status  ON listings(status);
 
--- California: a dealer can't sell a NEW handgun that is off the CA roster
--- (used off-roster handguns registered in CA are fine).
-CREATE TRIGGER trg_listings_new_offroster_ins
+-- California: a NEW handgun that is off the CA roster can only be sold to qualifying law
+-- enforcement buyers. Such listings are allowed and shown as "LEO Sales Only" (worked out from
+-- new_used + category + ca_rostered; see leo_only() in public/app/helpers.php, migration 005).
+
+-- A NEW handgun can't go on the site while its model's roster status is unchecked (migration 007).
+CREATE TRIGGER trg_listings_new_unchecked_ins
 BEFORE INSERT ON listings
-WHEN NEW.new_used = 'new'
- AND EXISTS (SELECT 1 FROM firearms f WHERE f.id = NEW.firearm_id AND f.category = 'handgun' AND f.ca_rostered = 0)
+WHEN NEW.new_used = 'new' AND NEW.status IN ('coming_soon','available','on_hold','pending')
+ AND EXISTS (SELECT 1 FROM firearms f WHERE f.id = NEW.firearm_id AND f.category = 'handgun' AND f.ca_rostered IS NULL)
 BEGIN
-  SELECT RAISE(ABORT, 'A new handgun must be on the CA roster. Mark this listing used, or fix the model''s roster status.');
+  SELECT RAISE(ABORT, 'Check this model''s CA roster status first (Firearms > the model > CA handgun roster). A new handgun can stay a Draft until then.');
 END;
 
-CREATE TRIGGER trg_listings_new_offroster_upd
-BEFORE UPDATE OF new_used, firearm_id ON listings
-WHEN NEW.new_used = 'new'
- AND EXISTS (SELECT 1 FROM firearms f WHERE f.id = NEW.firearm_id AND f.category = 'handgun' AND f.ca_rostered = 0)
+CREATE TRIGGER trg_listings_new_unchecked_upd
+BEFORE UPDATE OF new_used, firearm_id, status ON listings
+WHEN NEW.new_used = 'new' AND NEW.status IN ('coming_soon','available','on_hold','pending')
+ AND EXISTS (SELECT 1 FROM firearms f WHERE f.id = NEW.firearm_id AND f.category = 'handgun' AND f.ca_rostered IS NULL)
 BEGIN
-  SELECT RAISE(ABORT, 'A new handgun must be on the CA roster. Mark this listing used, or fix the model''s roster status.');
+  SELECT RAISE(ABORT, 'Check this model''s CA roster status first (Firearms > the model > CA handgun roster). A new handgun can stay a Draft until then.');
 END;
 
-CREATE TRIGGER trg_firearms_offroster_with_new
+CREATE TRIGGER trg_firearms_unchecked_with_new
 BEFORE UPDATE OF ca_rostered, category ON firearms
-WHEN NEW.ca_rostered = 0 AND NEW.category = 'handgun'
- AND EXISTS (SELECT 1 FROM listings l WHERE l.firearm_id = NEW.id AND l.new_used = 'new' AND l.status NOT IN ('sold','withdrawn'))
+WHEN NEW.ca_rostered IS NULL AND NEW.category = 'handgun'
+ AND EXISTS (SELECT 1 FROM listings l WHERE l.firearm_id = NEW.id AND l.new_used = 'new' AND l.status IN ('coming_soon','available','on_hold','pending'))
 BEGIN
-  SELECT RAISE(ABORT, 'This model has active NEW listings; mark them used (or sold/withdrawn) before setting it off-roster.');
+  SELECT RAISE(ABORT, 'This model has new listings on the site, so its CA roster status must stay On or Not on the roster.');
 END;
 
 CREATE TABLE listing_photos (
@@ -225,13 +232,13 @@ CREATE INDEX idx_ca_roster_make ON ca_roster(manufacturer);
 
 -- Database updates already included in this file (app/migrate.php skips these).
 CREATE TABLE schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT (datetime('now')));
-INSERT INTO schema_migrations (version) VALUES ('001'), ('002'), ('003'), ('004');
+INSERT INTO schema_migrations (version) VALUES ('001'), ('002'), ('003'), ('004'), ('005'), ('006'), ('007');
 
 -- What the website shows: guns currently for sale, with their key specs
 CREATE VIEW listings_public AS
 SELECT l.id AS listing_id, l.stock_number,
        COALESCE(l.title, f.manufacturer || ' ' || f.model) AS title,
-       l.status, l.new_used, l.consignment, l.price_usd, l.condition, l.condition_notes, l.est_round_count,
+       l.status, l.new_used, l.price_usd, l.condition, l.condition_notes, l.est_round_count,
        COALESCE(l.finish_color, f.finish) AS finish,
        l.modifications, l.magazines_included, l.original_box, l.included_items,
        l.description AS listing_description, l.additional_comments, l.listed_at,
@@ -316,3 +323,75 @@ INSERT INTO firearms (slug, manufacturer, model, category, caliber, action, capa
   'The Glock 19 Gen3 is the compact that set the standard. Big enough to shoot well, small enough to carry, it holds 15 rounds of 9mm in a pistol that weighs just over 21 ounces empty. Simple Safe Action operation, an accessory rail and Glock''s reputation for reliability make it a go-to for carry, home defense and the range alike.',
   'https://www.midwestgunworks.com/page/mgwi/prod/ui1950203',
   'Some retailers list overall length as 6.85" (older published figure). Trigger pull and twist from Academy. MSRP and sight radius not yet verified.');
+
+-- 006: one spelling per caliber / action (Michael, 2026-09-30).
+-- value_aliases remembers "this spelling means that one". Firearms are updated now, and new
+-- values (typed in Admin > Firearms or copied from the CA roster) are mapped when saved
+-- (canonical_value() in app/helpers.php). Admin > Firearms > Tidy values adds more merges.
+-- Left alone on purpose (ambiguous): ".22", ".45", "Revolver, double action".
+CREATE TABLE IF NOT EXISTS value_aliases (
+    field     TEXT NOT NULL CHECK (field IN ('caliber', 'action')),
+    alias     TEXT NOT NULL COLLATE NOCASE,
+    canonical TEXT NOT NULL,
+    PRIMARY KEY (field, alias)
+);
+
+INSERT OR REPLACE INTO value_aliases (field, alias, canonical) VALUES
+  ('caliber', '22 LR', '.22 LR'),
+  ('caliber', '.22 LR HV', '.22 LR'),
+  ('caliber', '.22 Mag', '.22 Magnum'),
+  ('caliber', '.22 Win. Magnum', '.22 Magnum'),
+  ('caliber', '.22 WM', '.22 Magnum'),
+  ('caliber', '.22 WMR', '.22 Magnum'),
+  ('caliber', '.22 WMRF', '.22 Magnum'),
+  ('caliber', '22MAG', '.22 Magnum'),
+  ('caliber', '.32 H&R', '.32 H&R Magnum'),
+  ('caliber', '.32 H&R MAG', '.32 H&R Magnum'),
+  ('caliber', '.32 Mag', '.32 H&R Magnum'),
+  ('caliber', '32 H&R', '.32 H&R Magnum'),
+  ('caliber', '.327 Fed Mag', '.327 Federal Magnum'),
+  ('caliber', '.327 Fed. Mag.', '.327 Federal Magnum'),
+  ('caliber', '.327 Magnum', '.327 Federal Magnum'),
+  ('caliber', '327', '.327 Federal Magnum'),
+  ('caliber', '.357 MAG', '.357 Magnum'),
+  ('caliber', '357 Mag', '.357 Magnum'),
+  ('caliber', '.38 special/ .357 Magnum', '.357 Magnum / .38 Special'),
+  ('caliber', '.38 S&W Special', '.38 Special'),
+  ('caliber', '.38 S&W SPL.', '.38 Special'),
+  ('caliber', '.38 Spl', '.38 Special'),
+  ('caliber', '.38 S&W Special +P', '.38 Special +P'),
+  ('caliber', '.38 S&W SPL. + P', '.38 Special +P'),
+  ('caliber', '.38 Special + P', '.38 Special +P'),
+  ('caliber', '.38 Spl. + P', '.38 Special +P'),
+  ('caliber', '.38 SPL. S&W +P', '.38 Special +P'),
+  ('caliber', '.380', '.380 ACP'),
+  ('caliber', '.380 Auto', '.380 ACP'),
+  ('caliber', '380 AUTO', '.380 ACP'),
+  ('caliber', '.44 Rem. Mag.', '.44 Magnum'),
+  ('caliber', '.44 Spl', '.44 Special'),
+  ('caliber', '.45 ACP/.45 Colt', '.45 ACP / .45 Colt'),
+  ('caliber', '.45 Long Colt', '.45 Colt'),
+  ('caliber', '.460 Magnum', '.460 S&W Magnum'),
+  ('caliber', '.460 S&W', '.460 S&W Magnum'),
+  ('caliber', '460 S&W Magnum', '.460 S&W Magnum'),
+  ('caliber', '.500 S&W', '.500 S&W Magnum'),
+  ('caliber', '10 mm', '10mm'),
+  ('caliber', '10mm Auto', '10mm'),
+  ('caliber', '9mm Luger', '9mm'),
+  ('caliber', '9x19mm', '9mm'),
+  ('caliber', '9MM', '9mm'),
+  ('action', 'Revolver, DAO', 'Revolver, double action only'),
+  ('action', 'Revolver, DA/SA', 'Revolver, single/double action'),
+  ('action', 'Revolver, Single / Double', 'Revolver, single/double action'),
+  ('action', 'Revolver, Single Action', 'Revolver, single action'),
+  ('action', 'Semi-auto, striker fired', 'Semi-auto, striker-fired'),
+  ('action', 'Semi-auto, SA/DA', 'Semi-auto, DA/SA hammer');
+
+UPDATE firearms SET caliber = TRIM(caliber) WHERE caliber <> TRIM(caliber);
+UPDATE firearms SET action = TRIM(action) WHERE action <> TRIM(action);
+UPDATE firearms
+   SET caliber = (SELECT a.canonical FROM value_aliases a WHERE a.field = 'caliber' AND a.alias = firearms.caliber)
+ WHERE EXISTS (SELECT 1 FROM value_aliases a WHERE a.field = 'caliber' AND a.alias = firearms.caliber);
+UPDATE firearms
+   SET action = (SELECT a.canonical FROM value_aliases a WHERE a.field = 'action' AND a.alias = firearms.action)
+ WHERE EXISTS (SELECT 1 FROM value_aliases a WHERE a.field = 'action' AND a.alias = firearms.action);

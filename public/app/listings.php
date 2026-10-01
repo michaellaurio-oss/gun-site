@@ -9,6 +9,26 @@ function public_listings(): array
     )->fetchAll();
 }
 
+/** Listed guns per new/used and type, e.g. ['new' => ['handgun' => 3], 'used' => [...]], in handgun/rifle/shotgun/other order. */
+function stocked_types(): array
+{
+    $out = [];
+    $rows = db()->query(
+        "SELECT new_used, category, COUNT(*) AS n FROM listings_public GROUP BY new_used, category
+          ORDER BY CASE category WHEN 'handgun' THEN 1 WHEN 'rifle' THEN 2 WHEN 'shotgun' THEN 3 ELSE 4 END"
+    );
+    foreach ($rows as $r) {
+        $out[$r['new_used']][$r['category']] = (int)$r['n'];
+    }
+    return $out;
+}
+
+/** Listed "LEO Sales Only" guns: new handguns whose model is off the CA roster (see leo_only()). */
+function leo_count(): int
+{
+    return (int)db()->query("SELECT COUNT(*) FROM listings_public WHERE new_used = 'new' AND category = 'handgun' AND ca_rostered = 0")->fetchColumn();
+}
+
 function find_public_listing(?string $stock, ?int $id): ?array
 {
     if ($stock !== null && $stock !== '') {
@@ -41,6 +61,12 @@ function firearm_specs(int $firearmId): array
     return $st->fetch() ?: [];
 }
 
+/** "Stock photo" tag with the hover/focus note. $class positions it (cards, gun page, compare page). */
+function stock_photo_tag(string $class = ''): string
+{
+    return '<span class="stock-tag ' . e($class) . '">' . tooltip('Stock photo' . icon('info', 12), STOCK_PHOTO_NOTE, 'stock-tag-btn') . '</span>';
+}
+
 function listing_photos(int $listingId): array
 {
     $st = db()->prepare(
@@ -67,10 +93,14 @@ function nowrap_pair(string $s): string
 function card_data(array $l): array
 {
     $isNew = $l['new_used'] === 'new';
+    // A NEW gun with no photos of its own shows the model's stock photo (never for used guns).
+    $photo = thumb_url($l['primary_photo']);
+    $stock = $photo === null && $isNew ? stock_photo_url($l['slug'], true) : null;
     return [
         'id'        => (int)$l['listing_id'],
         'url'       => listing_url($l),
-        'photo'     => thumb_url($l['primary_photo']),
+        'photo'     => $photo ?? $stock,
+        'stockPhoto' => $stock !== null,
         'make'      => $l['manufacturer'],
         'model'     => $l['title'] !== $l['manufacturer'] . ' ' . $l['model'] ? $l['title'] : $l['model'],
         'category'  => $l['category'],
@@ -84,6 +114,7 @@ function card_data(array $l): array
         'newused'   => $isNew ? 'New' : 'Used',
         'condition' => $l['condition'] ?? '',
         'roster'    => roster_label($l['category'], $l['ca_rostered']),
+        'leo'       => leo_only($l['new_used'], $l['category'], $l['ca_rostered']),
         'mods'      => trim((string)$l['modifications']) !== '' ? 'Modified' : 'Factory original',
         'status'    => $l['status'],
         'price'     => $l['price_usd'] !== null ? (float)$l['price_usd'] : null,

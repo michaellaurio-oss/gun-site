@@ -2,8 +2,8 @@
 require __DIR__ . '/_admin.php';
 require_login();
 
-$q = trim((string)($_GET['q'] ?? ''));
-$show = (string)($_GET['show'] ?? '');
+$q = trim(get_str('q', ''));
+$show = get_str('show', '');
 $where = [];
 $args = [];
 if ($q !== '') {
@@ -39,7 +39,8 @@ admin_header('Firearms', 'models');
 ?>
 <div class="admin-head">
   <h1 class="page-title">Firearms</h1>
-  <a class="btn btn-accent" href="<?= e(url('admin/model.php')) ?>">+ Add firearm</a>
+  <span class="head-actions"><a class="btn btn-outline" href="<?= e(url('admin/values.php')) ?>">Tidy calibers &amp; actions</a>
+  <a class="btn btn-accent" href="<?= e(url('admin/model.php')) ?>">+ Add firearm</a></span>
 </div>
 <p class="muted">One row per make and model: specs, caliber, description and CA roster status, shared by every listing of that firearm.</p>
 
@@ -66,7 +67,7 @@ admin_header('Firearms', 'models');
       <td><a class="strong" href="<?= e(url('admin/model.php', ['id' => $r['id']])) ?>"><?= e($r['manufacturer'] . ' ' . $r['model']) ?></a></td>
       <td><?= e(type_label($r['category'])) ?></td>
       <td><?= e($r['caliber'] ?? '') ?><?= $r['placeholder'] ? ' <span class="st st-on_hold">confirm</span>' : '' ?></td>
-      <td><?= $r['category'] !== 'handgun' ? '<span class="muted">n/a</span>' : ($r['ca_rostered'] === null ? '<span class="st st-draft">not checked</span>' : ((int)$r['ca_rostered'] ? 'On roster' : 'Off roster')) ?></td>
+      <td><?= $r['category'] !== 'handgun' ? '<span class="muted">n/a</span>' : ($r['ca_rostered'] === null ? '<span class="st st-draft">not checked</span>' : ((int)$r['ca_rostered'] ? 'On roster' : 'Off roster · LEO only when new')) ?></td>
       <td><?= $r['barrel_length_in'] !== null || $r['weight_oz'] !== null ? 'Yes' : '<span class="muted">—</span>' ?></td>
       <td class="mono"><a href="<?= e(url('admin/listing.php', ['firearm_id' => $r['id']])) ?>" title="Add a listing for this firearm">+</a> <?= (int)$r['listings'] ?></td>
     </tr>

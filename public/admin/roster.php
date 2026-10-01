@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $roster = roster_prepare($db->query('SELECT * FROM ca_roster')->fetchAll());
             $set = $db->prepare("UPDATE firearms SET ca_rostered = 1, ca_roster_checked_on = ?, ca_roster_entry = ?, updated_at = datetime('now') WHERE id = ?");
             $n = 0;
-            foreach ($db->query("SELECT id, manufacturer, model FROM firearms WHERE category = 'handgun' AND ca_rostered IS NULL")->fetchAll() as $f) {
+            foreach ($db->query("SELECT id, manufacturer, model, caliber FROM firearms WHERE category = 'handgun' AND ca_rostered IS NULL")->fetchAll() as $f) {
                 $m = roster_matches($f, $roster, 1);
                 if ($m && $m[0]['score'] >= 100) {
                     $set->execute([$today, $m[0]['row']['detail_path'], $f['id']]);
@@ -73,8 +73,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // ---------------- page ----------------
 $status = roster_status($db);
-$show = (string)($_GET['show'] ?? 'review');
-$q = trim((string)($_GET['q'] ?? ''));
+$show = get_str('show', 'review');
+$q = trim(get_str('q', ''));
 $for = (int)($_GET['for'] ?? 0);
 
 $roster = $status['rows'] ? roster_prepare($db->query('SELECT * FROM ca_roster')->fetchAll()) : [];
@@ -223,7 +223,7 @@ admin_header('CA roster', 'roster');
         <a class="strong" href="<?= e(url('admin/model.php', ['id' => $fid])) ?>"><?= e($f['manufacturer'] . ' ' . $f['model']) ?></a>
         <?php if ($f['ca_rostered'] === null): ?><span class="st st-draft">Not checked</span>
         <?php elseif ((int)$f['ca_rostered'] === 1): ?><span class="st st-available">On roster</span>
-        <?php else: ?><span class="st st-on_hold">Not on roster</span><?php endif; ?>
+        <?php else: ?><span class="st st-on_hold">Not on roster · LEO Sales Only when new</span><?php endif; ?>
         <?php if ($f['ca_roster_checked_on']): ?><span class="muted small">checked <?= e($f['ca_roster_checked_on']) ?></span><?php endif; ?>
       </div>
 
@@ -253,7 +253,7 @@ admin_header('CA roster', 'roster');
         <a class="btn btn-outline btn-sm" href="<?= e(url('admin/roster.php', ['q' => $f['manufacturer'] . ' ' . preg_replace('/\bG(?=\d)/', '', $f['model']), 'for' => $fid])) ?>">Search the roster</a>
         <?php if ((string)$f['ca_rostered'] !== '0'): ?>
           <form method="post" action="<?= e(url('admin/roster.php', ['show' => $show])) ?>" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="off"><input type="hidden" name="firearm_id" value="<?= $fid ?>">
-            <button class="btn btn-outline btn-sm" type="submit">Not on roster</button></form>
+            <button class="btn btn-outline btn-sm" type="submit">Not on roster (LEO Sales Only when new)</button></form>
         <?php endif; ?>
         <?php if ($f['ca_rostered'] !== null): ?>
           <form method="post" action="<?= e(url('admin/roster.php', ['show' => $show])) ?>" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="clear"><input type="hidden" name="firearm_id" value="<?= $fid ?>">

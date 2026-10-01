@@ -15,7 +15,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $showAll = isset($_GET['all']);
-$rows = db()->query('SELECT * FROM contact_messages' . ($showAll ? '' : ' WHERE handled = 0') . ' ORDER BY created_at DESC LIMIT 200')->fetchAll();
+// The listing each message is about (by stock #) comes with the messages in one query.
+$rows = db()->query('SELECT m.*, (SELECT l.id FROM listings l WHERE l.stock_number = m.stock_number LIMIT 1) AS listing_id
+                       FROM contact_messages m' . ($showAll ? '' : ' WHERE m.handled = 0') . ' ORDER BY m.created_at DESC LIMIT 200')->fetchAll();
 
 admin_header('Messages', 'messages');
 ?>
@@ -26,12 +28,7 @@ admin_header('Messages', 'messages');
 <?php if (!$rows): ?><p class="muted">No <?= $showAll ? '' : 'open ' ?>messages.</p><?php endif; ?>
 <div class="msg-list">
 <?php foreach ($rows as $m):
-    $gun = null;
-    if ($m['stock_number']) {
-        $g = db()->prepare('SELECT id FROM listings WHERE stock_number = ?');
-        $g->execute([$m['stock_number']]);
-        $gun = $g->fetchColumn();
-    } ?>
+    $gun = $m['stock_number'] ? $m['listing_id'] : null; ?>
   <article class="msg<?= $m['handled'] ? ' handled' : '' ?>">
     <div class="msg-head">
       <strong><?= e($m['name']) ?></strong>

@@ -1,10 +1,10 @@
 <?php
 require __DIR__ . '/app/bootstrap.php';
 
-$l = find_public_listing($_GET['stock'] ?? null, isset($_GET['id']) ? (int)$_GET['id'] : null);
+$l = find_public_listing(get_str('stock'), (int)get_str('id', '0') ?: null);
 if (!$l) {
     http_response_code(404);
-    page_header('Gun not found', 'inventory', ['noindex' => true]);
+    page_header('Gun not found', '', ['noindex' => true]);
     ?>
 <div class="container" style="padding-top:48px">
   <div class="crumbs"><a href="<?= e(url()) ?>">Home</a> / <a href="<?= e(url('inventory.php')) ?>">Inventory</a></div>
@@ -19,6 +19,12 @@ if (!$l) {
 $f = firearm_specs((int)$l['firearm_id']);
 $photos = listing_photos((int)$l['listing_id']);
 $c = card_data($l);
+// A new gun without its own photos shows the model's stock photo, labelled as such.
+$isStockPhoto = false;
+if (!$photos && $l['new_used'] === 'new' && stock_photo_url($l['slug']) !== null) {
+    $photos = [['file_path' => 'stock-photos/' . $l['slug'] . '.jpg', 'caption' => 'Stock photo']];
+    $isStockPhoto = true;
+}
 $isHandgun = $l['category'] === 'handgun';
 $heading = $c['model'];
 $fullName = $l['manufacturer'] . ' ' . $heading;
@@ -94,7 +100,7 @@ $status = status_info($l['status']);
 $description = trim((string)$l['listing_description']);
 $blurb = trim((string)$l['model_description']);
 
-page_header($fullName, 'inventory', ['description' => $blurb !== '' ? mb_substr($blurb, 0, 155) : $fullName]);
+page_header($fullName, $l['new_used'] === 'new' ? 'new' : 'used', ['description' => $blurb !== '' ? mb_substr($blurb, 0, 155) : $fullName]);
 ?>
 <div class="container">
   <div class="crumbs" style="padding-top:28px"><a href="<?= e(url()) ?>">Home</a> / <a href="<?= e(url('inventory.php')) ?>">Inventory</a> / <?= e($fullName) ?></div>
@@ -107,6 +113,9 @@ page_header($fullName, 'inventory', ['description' => $blurb !== '' ? mb_substr(
           <span class="tip-below"><?= status_badge($l['status'], true) ?></span>
         </div>
         <h1 class="detail-title"><?= e($heading) ?></h1>
+        <?php if ($c['leo']): ?>
+          <p class="leo-notice"><span class="leo-badge-static"><?= e(LEO_LABEL) ?></span><span><?= e(LEO_NOTE) ?></span></p>
+        <?php endif; ?>
       </div>
 
       <div class="price-row">
@@ -143,6 +152,7 @@ page_header($fullName, 'inventory', ['description' => $blurb !== '' ? mb_substr(
           <a class="btn btn-accent" href="<?= e(url('contact.php', ['stock' => $l['stock_number'] ?? '', 'gun' => $fullName])) ?>">Ask about this gun</a>
           <?= phone_link('btn btn-outline', icon('phone') . 'Call ' . e(shop('phone'))) ?>
         </div>
+        <?= compare_toggle($c, 'cmp-check') ?>
         <p class="fine">Transfer through a licensed dealer (FFL) with background check and any state waiting period. <a href="<?= e(url('how-to-buy.php')) ?>">How buying works</a></p>
       </div>
 
@@ -164,6 +174,7 @@ page_header($fullName, 'inventory', ['description' => $blurb !== '' ? mb_substr(
               <img src="<?= e(photo_url($first['file_path'])) ?>" alt="<?= e($fullName . ($first['caption'] ? ' – ' . $first['caption'] : '')) ?>">
               <span class="enlarge-hint"><?= icon('zoom', 14) ?>Click to enlarge</span>
             </button>
+            <?php if ($isStockPhoto): ?><?= stock_photo_tag('detail-stock-tag tip-below') ?><?php endif; ?>
             <?php if (count($photos) > 1): ?>
               <button type="button" class="photo-nav prev" id="photo-prev" aria-label="Previous photo"><span><?= icon('prev', 22) ?></span></button>
               <button type="button" class="photo-nav next" id="photo-next" aria-label="Next photo"><span><?= icon('next', 22) ?></span></button>
@@ -243,5 +254,7 @@ page_header($fullName, 'inventory', ['description' => $blurb !== '' ? mb_substr(
 </dialog>
 <script type="application/json" id="photo-data"><?= json_encode(array_map(fn($p) => ['src' => photo_url($p['file_path']), 'caption' => (string)$p['caption']], $photos), JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?></script>
 <?php endif; ?>
+<div id="cmp-tray" data-compare-url="<?= e(url('compare.php')) ?>" data-add-url="<?= e(url('inventory.php')) ?>" hidden></div>
+<script src="<?= e(asset('assets/js/compare.js')) ?>" defer></script>
 <script src="<?= e(asset('assets/js/detail.js')) ?>" defer></script>
 <?php page_footer();

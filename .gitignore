@@ -32,3 +32,8 @@ deploy/.deploy-state.json
 
 # Old inventory import (kept locally for reference)
 archive/
+
+# Manufacturer stock photos (copyrighted): deployed to the site, not in the public repo
+public/stock-photos/*
+!public/stock-photos/.htaccess
+!public/photos/.htaccess

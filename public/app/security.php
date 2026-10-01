@@ -42,8 +42,9 @@ function csrf_ok(): bool
 
 function client_ip_hash(): string
 {
-    // Salted so stored hashes can't be reversed by brute-forcing the IPv4 space.
-    $salt = config('ip_salt') ?: __DIR__;
+    // Salted so stored hashes can't be reversed by brute-forcing the IPv4 space. Set ip_salt in
+    // config.local.php; without it, fall back to something secret (not the guessable folder path).
+    $salt = (string)(config('ip_salt') ?: hash('sha256', 'ip|' . (string)config('admin_password_hash')));
     return hash('sha256', $salt . '|' . ($_SERVER['REMOTE_ADDR'] ?? ''));
 }
 

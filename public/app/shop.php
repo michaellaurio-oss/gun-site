@@ -20,7 +20,7 @@ return [
     // Home page hero
     'hero_kicker'   => 'Veteran owned · Torrance, CA',
     'hero_title'    => 'New and used guns, fully specified.',
-    'hero_text'     => 'Every listing shows photos of the actual firearm, an honest condition report, and complete factory specs in inches and metric.',
+    'hero_text'     => 'Every used gun is shown in photos of the actual firearm, with an honest condition report. Every listing has complete factory specs in inches and metric.',
 
     // Demo notice: shown on every page and keeps search engines away while this is a preview.
     // Set to '' once the store adopts the site.

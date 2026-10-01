@@ -26,8 +26,8 @@ $groups = [
         ['manufacturer', 'Manufacturer', 'text', ''],
         ['model', 'Model', 'text', ''],
         ['category', 'Type', 'category', ''],
-        ['caliber', 'Caliber', 'text', 'e.g. 9mm Luger, .357 Magnum / .38 Special, 12 gauge'],
-        ['action', 'Action', 'text', 'e.g. Semi-auto, striker; Revolver, DA/SA; Pump action'],
+        ['caliber', 'Caliber', 'choice', 'Pick from the list. Use "Add a new one" only if it really isn\'t there.'],
+        ['action', 'Action', 'choice', 'Pick from the list. Use "Add a new one" only if it really isn\'t there.'],
         ['capacity', 'Capacity (rounds)', 'num', 'Factory capacity. Over 10 automatically shows "(10 round limit in CA)".'],
         ['capacity_note', 'Capacity note', 'text', ''],
     ],
@@ -79,6 +79,64 @@ $groups = [
     ],
 ];
 
+// ----- Stock photo (shown on NEW listings of this firearm that have no photos of their own) -----
+// "Find" downloads the product photo from the manufacturer page and shows it for checking;
+// nothing is saved until "Use this photo".
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['stock_action']) && $model) {
+    require_post_csrf();
+    $slug = (string)$model['slug'];
+    $preview = $_SESSION['stock_preview'][$id] ?? null;
+    $clearPreview = function () use ($id, $preview) {
+        if ($preview && is_file($preview['file'])) {
+            @unlink($preview['file']);
+        }
+        unset($_SESSION['stock_preview'][$id]);
+    };
+    try {
+        switch ((string)$_POST['stock_action']) {
+            case 'upload':
+                $file = $_FILES['stock_file'] ?? [];
+                if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name']) || filesize($file['tmp_name']) > PHOTO_MAX_BYTES) {
+                    throw new RuntimeException('The photo was not received, or it is too large.');
+                }
+                stock_save((string)file_get_contents($file['tmp_name']), $slug);
+                $clearPreview();
+                flash('Stock photo saved.');
+                break;
+            case 'find':
+                $page = trim((string)($_POST['stock_page'] ?? ''));
+                if (!preg_match('~^https?://~i', $page)) {
+                    throw new RuntimeException('Enter the manufacturer page address (starting with https://).');
+                }
+                [$img, $bytes] = stock_fetch_from_page($page, $model['image_url'] ?? null);
+                $clearPreview();
+                $tmp = tempnam(sys_get_temp_dir(), 'stock');
+                file_put_contents($tmp, $bytes);
+                $_SESSION['stock_preview'][$id] = ['file' => $tmp, 'image' => $img, 'page' => $page];
+                flash('Found a photo on the manufacturer page. Check it below, then choose "Use this photo".');
+                break;
+            case 'use':
+                if (!$preview || !is_file($preview['file'])) {
+                    throw new RuntimeException('That preview has expired. Find the photo again.');
+                }
+                stock_save((string)file_get_contents($preview['file']), $slug);
+                $clearPreview();
+                flash('Stock photo saved.');
+                break;
+            case 'discard':
+                $clearPreview();
+                break;
+            case 'remove':
+                stock_delete($slug);
+                flash('Stock photo removed.');
+                break;
+        }
+    } catch (RuntimeException $e) {
+        flash($e->getMessage(), 'err');
+    }
+    redirect(url('admin/model.php', ['id' => $id]) . '#stock-photo');
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_post_csrf();
     $data = [];
@@ -90,6 +148,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $data[$col] = in_bool($col);
             } elseif ($type === 'category') {
                 $data[$col] = in_array($_POST[$col] ?? '', CATEGORIES, true) ? $_POST[$col] : 'handgun';
+            } elseif ($type === 'choice') {
+                // Dropdown of values already used, or "Add a new one" (typed into <col>__new).
+                $data[$col] = ($_POST[$col] ?? '') === '__new' ? in_text($col . '__new', 10000) : in_text($col, 10000);
             } else {
                 $data[$col] = in_text($col, 10000);
             }
@@ -98,6 +159,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     foreach (['capacity', 'release_year'] as $c) {
         $data[$c] = $data[$c] === null ? null : (int)$data[$c];
     }
+    // One spelling per caliber / action (known aliases become the usual spelling).
+    $data['caliber'] = canonical_value('caliber', $data['caliber']);
+    $data['action'] = canonical_value('action', $data['action']);
     if ($data['category'] !== 'handgun') {
         $data['ca_rostered'] = null;
     }
@@ -130,6 +194,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($id) {
             $set = implode(', ', array_map(fn($k) => "$k = :$k", array_keys($data)));
             $db->prepare("UPDATE firearms SET $set, updated_at = datetime('now') WHERE id = :id")->execute($data + ['id' => $id]);
+            stock_rename((string)$model['slug'], (string)$data['slug']);   // the stock photo is named after the slug
             flash('Firearm saved.');
         } else {
             $cols = implode(', ', array_keys($data));
@@ -146,7 +211,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $v = $model ?? ['category' => 'handgun'];
 // Pre-fill from the search typed on the listing page: a known manufacturer at the start goes in Manufacturer.
-$q = trim((string)($_GET['q'] ?? ''));
+$q = trim(get_str('q', ''));
 if (!$model && $q !== '') {
     $v['model'] = $q;
     foreach ($db->query('SELECT DISTINCT manufacturer FROM firearms ORDER BY LENGTH(manufacturer) DESC')->fetchAll(PDO::FETCH_COLUMN) as $mf) {
@@ -161,7 +226,7 @@ if (!$model && $q !== '') {
 $fromRoster = null;
 if (!$model && isset($_GET['roster'])) {
     $st = $db->prepare('SELECT * FROM ca_roster WHERE detail_path = ? LIMIT 1');
-    $st->execute([(string)$_GET['roster']]);
+    $st->execute([get_str('roster')]);
     if ($fromRoster = $st->fetch() ?: null) {
         $make = roster_display_make($db, $fromRoster['manufacturer']);
         $name = roster_clean_model($fromRoster['model_base']);
@@ -170,7 +235,7 @@ if (!$model && isset($_GET['roster'])) {
         }
         $v = array_merge($v, [
             'manufacturer' => $make, 'model' => $name, 'category' => 'handgun',
-            'caliber' => $fromRoster['caliber'], 'barrel_length_in' => $fromRoster['barrel_length_in'],
+            'caliber' => canonical_value('caliber', $fromRoster['caliber']), 'barrel_length_in' => $fromRoster['barrel_length_in'],
             'frame_material' => $fromRoster['material'], 'action' => $fromRoster['gun_type'] === 'Revolver' ? 'Revolver' : null,
             'ca_rostered' => 1, 'ca_roster_checked_on' => date('Y-m-d'), 'ca_roster_entry' => $fromRoster['detail_path'],
             'source_url' => ROSTER_SITE . $fromRoster['detail_path'],
@@ -178,7 +243,7 @@ if (!$model && isset($_GET['roster'])) {
     }
 }
 // Roster search on the new-firearm page (starts with the text typed on the listing page).
-$rosterQ = trim((string)($_GET['roster_q'] ?? ($fromRoster ? '' : $q)));
+$rosterQ = trim(isset($_GET['roster_q']) ? get_str('roster_q') : ($fromRoster ? '' : $q));
 $rosterInfo = roster_status($db);
 $rosterResults = (!$model && !$fromRoster && $rosterQ !== '' && $rosterInfo['rows']) ? roster_search($db, $rosterQ, 15) : [];
 
@@ -198,6 +263,71 @@ admin_header($heading, 'models');
 <?php if ($model): ?>
   <p class="muted">Changes here apply to every listing of this firearm (<?= count($listings) ?>).
     <a href="<?= e(url('admin/listing.php', ['firearm_id' => $id])) ?>">Add a listing for this firearm</a></p>
+
+  <?php
+  $stockNow = stock_photo_url($model['slug'] ?? null, true);
+  $preview = $_SESSION['stock_preview'][$id] ?? null;
+  $previewSrc = null;
+  if ($preview && is_file($preview['file'])) {
+      // Small inline preview of the downloaded photo (it isn't on the site until "Use this photo").
+      $bytes = (string)file_get_contents($preview['file']);
+      $info = @getimagesizefromstring($bytes);
+      if ($info && $info[0] * $info[1] <= 16_000_000 && ($im = @imagecreatefromstring($bytes))) {
+          $pw = min(480, $info[0]);
+          $out = imagecreatetruecolor($pw, (int)round($info[1] * $pw / $info[0]));
+          imagefill($out, 0, 0, imagecolorallocate($out, 255, 255, 255));
+          imagecopyresampled($out, $im, 0, 0, 0, 0, imagesx($out), imagesy($out), $info[0], $info[1]);
+          ob_start();
+          imagejpeg($out, null, 80);
+          $previewSrc = 'data:image/jpeg;base64,' . base64_encode(ob_get_clean());
+      }
+  }
+  $stockForm = fn(string $action, string $label, string $class = 'btn btn-outline btn-sm', string $extra = '') =>
+      '<form method="post" action="' . e(url('admin/model.php', ['id' => $id])) . '" class="inline-form">' . csrf_field()
+      . '<input type="hidden" name="stock_action" value="' . e($action) . '">' . $extra
+      . '<button class="' . e($class) . '" type="submit">' . e($label) . '</button></form>';
+  ?>
+  <section class="stock-admin" id="stock-photo" aria-labelledby="stock-photo-title">
+    <h2 id="stock-photo-title">Stock photo</h2>
+    <p class="muted small">Shown on <strong>new</strong> listings of this firearm until they have photos of their own, labelled "Stock photo" with the note: <?= e(STOCK_PHOTO_NOTE) ?> Never shown on used guns.</p>
+    <div class="stock-admin-row">
+      <div class="stock-admin-img">
+        <?php if ($stockNow): ?><img src="<?= e($stockNow) ?>" alt="Current stock photo"><?php else: ?><span class="muted">No stock photo yet</span><?php endif; ?>
+      </div>
+      <div class="stock-admin-actions">
+        <?php if ($previewSrc): ?>
+          <div class="stock-preview">
+            <strong>Found on the manufacturer page:</strong>
+            <img src="<?= $previewSrc ?>" alt="Photo found on the manufacturer page">
+            <span class="muted small"><?= e($preview['image']) ?></span>
+            <div class="stock-preview-btns">
+              <?= $stockForm('use', 'Use this photo', 'btn btn-accent btn-sm') ?>
+              <?= $stockForm('discard', 'Discard', 'link-btn') ?>
+            </div>
+          </div>
+        <?php endif; ?>
+        <form method="post" action="<?= e(url('admin/model.php', ['id' => $id])) ?>" class="stock-find">
+          <?= csrf_field() ?>
+          <input type="hidden" name="stock_action" value="find">
+          <label for="stock_page">Manufacturer page</label>
+          <div class="stock-find-row">
+            <input class="input" id="stock_page" name="stock_page" type="url" value="<?= e(stock_page_for($model) ?? '') ?>" placeholder="https://manufacturer.com/product-page">
+            <button class="btn btn-dark btn-sm" type="submit">Find photo</button>
+          </div>
+        </form>
+        <form method="post" action="<?= e(url('admin/model.php', ['id' => $id])) ?>" enctype="multipart/form-data" class="stock-upload">
+          <?= csrf_field() ?>
+          <input type="hidden" name="stock_action" value="upload">
+          <label for="stock_file">Or upload one</label>
+          <div class="stock-find-row">
+            <input id="stock_file" name="stock_file" type="file" accept="image/jpeg,image/png,image/webp" required>
+            <button class="btn btn-outline btn-sm" type="submit">Upload</button>
+          </div>
+        </form>
+        <?php if ($stockNow): ?><?= $stockForm('remove', 'Remove stock photo', 'link-btn') ?><?php endif; ?>
+      </div>
+    </div>
+  </section>
 <?php endif; ?>
 
 <?php if ($returnListing): ?>
@@ -248,9 +378,23 @@ admin_header($heading, 'models');
             <textarea class="input" id="<?= $col ?>" name="<?= $col ?>" rows="<?= $col === 'description' ? 5 : 3 ?>"><?= e($value ?? '') ?></textarea>
           <?php elseif ($type === 'category'): ?>
             <select class="select" id="<?= $col ?>" name="<?= $col ?>"><?php foreach (CATEGORIES as $c) echo opt($c, type_label($c) . ($c === 'other' ? ' (receivers, kits)' : ''), $value); ?></select>
+          <?php elseif ($type === 'choice'):
+              // Values already used in Firearms (with how many use each), plus "Add a new one".
+              $known = $db->query("SELECT $col AS v, COUNT(*) AS n FROM firearms WHERE TRIM(COALESCE($col, '')) <> '' GROUP BY $col ORDER BY $col COLLATE NOCASE")->fetchAll();
+              $inList = $value === null || $value === '' || in_array($value, array_column($known, 'v'), true); ?>
+            <select class="select choice-select" id="<?= $col ?>" name="<?= $col ?>" data-choice="<?= e(strtolower($label)) ?>">
+              <?= opt('', '— Not set —', $value ?? '') ?>
+              <?php foreach ($known as $k) echo opt($k['v'], $k['v'] . ' (' . (int)$k['n'] . ')', $value ?? ''); ?>
+              <?php if (!$inList): ?><?= opt($value, $value . ' (this firearm)', $value) ?><?php endif; ?>
+              <option value="__new">Add a new one…</option>
+            </select>
+            <span class="choice-new">
+              <label for="<?= $col ?>__new" class="sr-only">New <?= e(strtolower($label)) ?></label>
+              <input class="input" id="<?= $col ?>__new" name="<?= $col ?>__new" type="text" placeholder="Type the new <?= e(strtolower($label)) ?>" autocomplete="off">
+            </span>
           <?php elseif ($type === 'roster'): ?>
             <select class="select" id="<?= $col ?>" name="<?= $col ?>">
-              <?= opt('', 'Not checked / not a handgun', $value ?? '') ?><?= opt('1', 'On the roster', $value ?? '') ?><?= opt('0', 'Not on the roster', $value ?? '') ?>
+              <?= opt('', 'Not checked / not a handgun', $value ?? '') ?><?= opt('1', 'On the roster', $value ?? '') ?><?= opt('0', 'Not on the roster — LEO Sales Only when new', $value ?? '') ?>
             </select>
           <?php else: ?>
             <input class="input<?= $type === 'num' ? ' mono' : '' ?>" id="<?= $col ?>" name="<?= $col ?>" type="<?= $type === 'date' ? 'date' : 'text' ?>"<?= $type === 'num' ? ' inputmode="decimal"' : '' ?> value="<?= e($type === 'num' && $value !== null ? num($value, 4) : ($value ?? '')) ?>">

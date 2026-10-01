@@ -2,7 +2,7 @@
 require __DIR__ . '/_admin.php';
 
 $hash = (string)config('admin_password_hash');
-$next = (string)($_GET['next'] ?? $_POST['next'] ?? '');
+$next = req_str('next', '');
 if (strpos($next, config('base_url') . 'admin/') !== 0 || strpos($next, '//') !== false) {
     $next = url('admin/');
 }
@@ -20,7 +20,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $hash !== '') {
     $mine = (int)$st->fetchColumn();
     $all = (int)$db->query("SELECT COUNT(*) FROM login_attempts WHERE attempted_at > datetime('now', '-1 hour')")->fetchColumn();
 
-    if ($mine >= 5 || $all >= 50) {
+    // Per address: 5 wrong passwords lock that address out for 15 minutes. Site-wide: lots of
+    // failures (a bot) only slow every attempt down, so nobody can lock the owner out on purpose.
+    if ($all >= 50) {
+        sleep(3);
+    }
+    if ($mine >= 5) {
         $error = 'Too many wrong passwords. Wait 15 minutes and try again.';
     } elseif (!csrf_ok()) {
         $error = 'Your session expired. Please try again.';

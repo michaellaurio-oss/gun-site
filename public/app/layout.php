@@ -7,13 +7,25 @@ function page_header(string $title, string $active = '', array $opts = []): void
     $fullTitle = $title === '' ? $shopName : $title . ' – ' . $shopName;
     $q = $opts['q'] ?? '';
     $nav = [
-        'inventory' => ['Inventory', url('inventory.php')],
-        'handgun'   => ['Handguns', url('inventory.php', ['type' => 'Handgun'])],
-        'rifle'     => ['Rifles', url('inventory.php', ['type' => 'Rifle'])],
-        'shotgun'   => ['Shotguns', url('inventory.php', ['type' => 'Shotgun'])],
+        'new'       => ['New Inventory', url('inventory.php', ['newused' => 'New'])],
+        'used'      => ['Used Inventory', url('inventory.php', ['newused' => 'Used'])],
+        'ammo'      => ['Ammo', '#'],   // no ammo page yet (Michael, 2026-09-30)
         'how'       => ['How to buy', url('how-to-buy.php')],
         'about'     => ['About', url('about.php')],
     ];
+    // Hover menus under New / Used Inventory: only the types currently listed.
+    $stocked = stocked_types();
+    $sub = [];
+    foreach (['new' => 'New', 'used' => 'Used'] as $key => $nu) {
+        foreach ($stocked[$key] ?? [] as $category => $count) {
+            $plural = ['handgun' => 'Handguns', 'rifle' => 'Rifles', 'shotgun' => 'Shotguns'][$category] ?? type_label($category);
+            $sub[$key][] = [$plural, url('inventory.php', ['newused' => $nu, 'type' => type_label($category)]), $count];
+        }
+    }
+    // Always last under New Inventory, below a thin line (Michael, 2026-09-30).
+    // Links to the inventory filtered to "LEO Sales Only" guns (new + off the CA roster).
+    $leoCount = leo_count();
+    $sub['new'][] = ['LEO', url('inventory.php', ['leo' => 1]), $leoCount ?: null, true];
     ?>
 <!doctype html>
 <html lang="en" class="no-js">
@@ -41,7 +53,18 @@ function page_header(string $title, string $active = '', array $opts = []): void
     <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="site-nav"><?= icon('menu', 22) ?><span class="sr-only">Menu</span></button>
     <nav id="site-nav" class="site-nav" aria-label="Main">
       <?php foreach ($nav as $key => [$label, $href]): ?>
-        <a href="<?= e($href) ?>"<?= $key === $active ? ' aria-current="page"' : '' ?>><?= e($label) ?></a>
+        <?php if (!empty($sub[$key])): ?>
+          <div class="nav-item has-sub">
+            <a href="<?= e($href) ?>"<?= $key === $active ? ' aria-current="page"' : '' ?>><?= e($label) ?><?= icon('chevron', 16, 'nav-caret') ?></a>
+            <ul class="subnav" aria-label="<?= e($label) ?> by type">
+              <?php foreach ($sub[$key] as $item): [$subLabel, $subHref, $count] = $item; ?>
+                <li<?= !empty($item[3]) ? ' class="subnav-sep"' : '' ?>><a href="<?= e($subHref) ?>"><?= e($subLabel) ?><?php if ($count !== null): ?><span class="subnav-count"><?= (int)$count ?></span><?php endif; ?></a></li>
+              <?php endforeach; ?>
+            </ul>
+          </div>
+        <?php else: ?>
+          <a href="<?= e($href) ?>"<?= $key === $active ? ' aria-current="page"' : '' ?>><?= e($label) ?></a>
+        <?php endif; ?>
       <?php endforeach; ?>
     </nav>
     <form class="site-search" role="search" action="<?= e(url('inventory.php')) ?>" method="get">
@@ -112,8 +135,19 @@ function status_badge(string $status, bool $large = false): string
     return tooltip($inner, $s['tip'], 'badge' . ($large ? ' badge-lg' : ''), 'color:' . $s['fg'] . ';background:' . $s['bg']);
 }
 
+/**
+ * "Compare" checkbox for a listing (inventory cards and the gun page). assets/js/compare.js
+ * saves the pick; the data-* attributes are what the compare tray shows.
+ */
+function compare_toggle(array $c, string $class = 'cmp-pick'): string
+{
+    return '<label class="' . e($class) . '"><input type="checkbox" data-compare="' . (int)$c['id'] . '"'
+        . ' data-make="' . e($c['make']) . '" data-model="' . e($c['model']) . '" data-photo="' . e($c['photo'] ?? '') . '">'
+        . ' Compare<span class="sr-only"> ' . e($c['make'] . ' ' . $c['model']) . '</span></label>';
+}
+
 /** Listing card. Keep in sync with renderCard() in assets/js/inventory.js. */
-function render_card(array $c, bool $showStock = true): string
+function render_card(array $c, bool $showStock = true, bool $compare = false): string
 {
     ob_start();
     ?>
@@ -126,8 +160,11 @@ function render_card(array $c, bool $showStock = true): string
     <?php endif; ?>
     <span class="chip"><?= e($c['type']) ?></span>
     <?php if ($c['status'] !== 'available'): ?><span class="card-status"><?= status_badge($c['status']) ?></span><?php endif; ?>
+    <?php if ($compare): ?><?= compare_toggle($c) ?><?php endif; ?>
+    <?php if (!empty($c['stockPhoto'])): ?><?= stock_photo_tag('card-stock-tag tip-right') ?><?php endif; ?>
   </div>
   <div class="card-body">
+    <?php if (!empty($c['leo'])): ?><?= leo_badge('card-leo') ?><?php endif; ?>
     <div class="card-head">
       <div class="min0">
         <div class="card-make"><?= e($c['make']) ?></div>
@@ -146,7 +183,7 @@ function render_card(array $c, bool $showStock = true): string
         <?php if ($c['newused'] === 'New'): ?><span class="tag tag-new">New</span>
         <?php else: ?><span class="tag">Used<?= $c['condition'] !== '' ? ' · ' . e($c['condition']) : '' ?></span><?php endif; ?>
         <?php if ($c['roster'] === 'On roster'): ?><span class="tag tag-roster">CA Roster</span><?php endif; ?>
-        <?php if ($c['roster'] === 'Off roster'): ?><?= tooltip('Off roster' . icon('info', 12), OFF_ROSTER_NOTE, 'tag tag-help') ?><?php endif; ?>
+        <?php if ($c['roster'] === 'Off roster' && empty($c['leo'])): ?><?= tooltip('Off roster' . icon('info', 12), OFF_ROSTER_NOTE, 'tag tag-help') ?><?php endif; ?>
         <?php if ($c['mods'] === 'Modified'): ?><span class="tag">Modified</span><?php endif; ?>
       </div>
       <span class="card-price"><?= e($c['priceText']) ?></span>

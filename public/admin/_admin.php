@@ -3,6 +3,7 @@
 require __DIR__ . '/../app/bootstrap.php';
 require __DIR__ . '/../app/security.php';
 require __DIR__ . '/../app/photos.php';
+require __DIR__ . '/../app/stock_photos.php';
 require __DIR__ . '/../app/migrate.php';
 require __DIR__ . '/../app/roster.php';
 
@@ -14,8 +15,10 @@ header('Cache-Control: no-store');
 try {
     apply_migrations(db());
 } catch (Throwable $e) {
+    // Runs before the login check, so visitors see only a generic message; details go to the server log.
+    error_log('gun-site: ' . $e->getMessage());
     http_response_code(500);
-    exit('Database update failed: ' . e($e->getMessage()));
+    exit('The site is being updated. Please try again in a few minutes.');
 }
 
 const ADMIN_IDLE_SECONDS = 4 * 3600;
@@ -75,16 +78,27 @@ function flash(string $msg, string $type = 'ok'): void
 
 function redirect(string $to): void
 {
+    // Forms sent by admin.js (photos shrunk in the browser first) get the address as JSON and
+    // go there themselves, so the flash messages show on that page instead of being used up by fetch().
+    if (($_POST['_js'] ?? '') === '1') {
+        header('Content-Type: application/json');
+        echo json_encode(['redirect' => $to]);
+        exit;
+    }
     header('Location: ' . $to, true, 303);
     exit;
 }
 
 function redirect_back(): void
 {
-    $ref = $_SERVER['HTTP_REFERER'] ?? '';
+    // Only the path and query of the Referer are used, never its host, so a forged
+    // Referer like https://evil.example/gun-site/admin/x can't send the browser elsewhere.
+    $ref = (string)($_SERVER['HTTP_REFERER'] ?? '');
     $base = config('base_url') . 'admin/';
-    $path = parse_url($ref, PHP_URL_PATH) ?: '';
-    redirect(strpos($path, $base) === 0 ? $ref : url('admin/'));
+    $path = (string)(parse_url($ref, PHP_URL_PATH) ?: '');
+    $query = (string)(parse_url($ref, PHP_URL_QUERY) ?: '');
+    $ok = strpos($path, $base) === 0 && strpos($path, '//') === false && strpos($path, '\\') === false;
+    redirect($ok ? $path . ($query !== '' ? '?' . $query : '') : url('admin/'));
 }
 
 /** Turn SQLite trigger / constraint errors into something readable. */

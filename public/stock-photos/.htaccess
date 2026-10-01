@@ -1,0 +1,11 @@
+# Images only: never run or serve scripts from this folder (code review 2026-09-30).
+# Uploads are re-encoded as .jpg with random names, so this is an extra safeguard.
+<FilesMatch "(?i)\.(php\d?|phtml|phar|pht|cgi|pl|py|sh|asp|aspx|jsp|shtml|htaccess)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>

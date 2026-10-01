@@ -3,8 +3,8 @@ require __DIR__ . '/app/bootstrap.php';
 require __DIR__ . '/app/security.php';
 csrf_token();  // start the session before any output
 
-$stock = mb_substr(trim((string)($_GET['stock'] ?? '')), 0, 40);
-$gun = mb_substr(trim((string)($_GET['gun'] ?? '')), 0, 120);
+$stock = mb_substr(trim(get_str('stock', '')), 0, 40);
+$gun = mb_substr(trim(get_str('gun', '')), 0, 120);
 $form = ['name' => '', 'email' => '', 'phone' => '', 'stock' => $stock, 'message' => ''];
 if ($gun !== '') {
     $form['message'] = 'I have a question about the ' . $gun . ($stock !== '' ? ' (stock #' . $stock . ')' : '') . '.';
@@ -25,8 +25,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_ok()) {
         $errors[] = 'Your session expired. Please send the form again.';
     }
-    // Spam traps: hidden field must stay empty, and humans take more than 3 seconds.
-    $isBot = post_str('website', 200) !== '' || ($started > 0 && time() - $started < 3);
+    // Spam traps: hidden field must stay empty, the time field must be there, and humans take more than 3 seconds.
+    $isBot = post_str('website', 200) !== '' || $started <= 0 || time() - $started < 3;
     if ($form['name'] === '') {
         $errors[] = 'Please enter your name.';
     }

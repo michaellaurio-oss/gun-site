@@ -65,9 +65,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // ----- list -----
-$q = trim((string)($_GET['q'] ?? ''));
-$fStatus = (string)($_GET['status'] ?? '');
-$fCat = (string)($_GET['cat'] ?? '');
+$q = trim(get_str('q', ''));
+$fStatus = get_str('status', '');
+$fCat = get_str('cat', '');
 $page = max(1, (int)($_GET['page'] ?? 1));
 $per = 50;
 
@@ -97,7 +97,7 @@ $page = min($page, $pages);
 
 $st = db()->prepare(
     "SELECT l.id, l.stock_number, l.status, l.price_usd, l.new_used, l.condition, l.updated_at, l.title,
-            f.manufacturer, f.model, f.category, f.caliber,
+            f.manufacturer, f.model, f.category, f.caliber, f.ca_rostered,
             (SELECT COUNT(*) FROM listing_photos p WHERE p.listing_id = l.id) AS photos
        FROM listings l JOIN firearms f ON f.id = l.firearm_id
        $sqlWhere
@@ -159,15 +159,17 @@ admin_header('Listings', 'listings');
       <th scope="col">Price</th><th scope="col">New / used</th><th scope="col">Photos</th><th scope="col">Updated</th>
     </tr></thead>
     <tbody>
+    <?php $justAdded = (int)($_GET['new'] ?? 0); ?>
     <?php foreach ($rows as $r): ?>
-      <tr>
+      <tr<?= (int)$r['id'] === $justAdded ? ' class="just-added"' : '' ?>>
         <td><input type="checkbox" name="ids[]" value="<?= (int)$r['id'] ?>" aria-label="Tick <?= e($r['manufacturer'] . ' ' . $r['model']) ?>"></td>
         <td class="mono"><?= $r['stock_number'] ? e($r['stock_number']) : '<span class="muted">—</span>' ?></td>
         <td><a class="strong" href="<?= e(url('admin/listing.php', ['id' => $r['id']])) ?>"><?= e($r['title'] ?: $r['manufacturer'] . ' ' . $r['model']) ?></a>
           <div class="muted small"><?= e(type_label($r['category'])) ?> · <?= e($r['caliber'] ?? '') ?></div></td>
         <td><span class="st st-<?= e($r['status']) ?>"><?= e(status_name($r['status'])) ?></span></td>
         <td class="mono"><?= $r['price_usd'] !== null ? e(money($r['price_usd'])) : '<span class="muted">—</span>' ?></td>
-        <td><?= $r['new_used'] === 'new' ? 'New' : 'Used' ?><?= $r['condition'] ? ' · ' . e($r['condition']) : '' ?></td>
+        <td><?= $r['new_used'] === 'new' ? 'New' : 'Used' ?><?= $r['condition'] ? ' · ' . e($r['condition']) : '' ?>
+          <?php if (leo_only($r['new_used'], $r['category'], $r['ca_rostered'])): ?><div><span class="leo-badge-static small-leo"><?= e(LEO_LABEL) ?></span></div><?php endif; ?></td>
         <td class="mono"><?= (int)$r['photos'] ?: '<span class="muted">0</span>' ?></td>
         <td class="small muted"><?= e(substr((string)$r['updated_at'], 0, 10)) ?></td>
       </tr>
