@@ -26,6 +26,9 @@
       if (!v) return true;
       var match = known.filter(function (k) { return k.toLowerCase() === v.toLowerCase(); })[0];
       if (match) {
+        if (!Array.prototype.some.call(sel.options, function (o) { return o.value === match; })) {
+          sel.add(new Option(match, match), sel.options[sel.options.length - 1]);
+        }
         sel.value = match;
         box.value = '';
         show();
@@ -48,6 +51,29 @@
     show();
   });
 
+  // ---- Tidy values: "Merge ticked into" offers only the spellings that are ticked ----
+  (function () {
+    var into = document.getElementById('into');
+    var form = into && into.form;
+    if (!form || !form.querySelector('input[name="values[]"]')) return;
+    var boxes = form.querySelectorAll('input[name="values[]"]');
+    var placeholder = into.options[0];
+    var newOpt = into.querySelector('option[value="__new"]');
+    function rebuild() {
+      var keep = into.value;
+      var ticked = Array.prototype.filter.call(boxes, function (b) { return b.checked; })
+        .map(function (b) { return b.value; });
+      while (into.options.length) into.remove(0);
+      placeholder.textContent = ticked.length ? '— choose the spelling to keep —' : '— tick the spellings first —';
+      into.add(placeholder);
+      ticked.forEach(function (v) { into.add(new Option(v, v)); });
+      into.add(newOpt);
+      into.value = (ticked.indexOf(keep) >= 0 || keep === '__new') ? keep : '';
+      into.dispatchEvent(new Event('change'));
+    }
+    Array.prototype.forEach.call(boxes, function (b) { b.addEventListener('change', rebuild); });
+    rebuild();
+  })();
   // ---- Forms that ask first (data-confirm), e.g. Tidy values > Merge ----
   document.querySelectorAll('form[data-confirm]').forEach(function (f) {
     f.addEventListener('submit', function (e) {
