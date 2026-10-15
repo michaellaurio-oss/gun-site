@@ -165,6 +165,9 @@
         .catch(function () { /* keep the old panel; the page still saves fine */ });
     };
     pick.addEventListener('change', refreshPanel);
+    // Choosing a gun from the open list closes it, leaving the normal one-line drop-down.
+    pick.addEventListener('change', function (e) { if (e.isTrusted && pick.value) pick.size = 1; });
+    pick.addEventListener('keydown', function (e) { if (e.key === 'Enter' && pick.value) { e.preventDefault(); pick.size = 1; } });
     search.addEventListener('input', rebuild);
     search.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); pick.focus(); } });
   }
