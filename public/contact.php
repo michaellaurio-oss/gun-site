@@ -62,7 +62,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'Reply-To: ' . $clean($form['email']),
                     'Content-Type: text/plain; charset=UTF-8',
                 ];
-                if (@mail($to, '=?UTF-8?B?' . base64_encode($subject) . '?=', $body, implode("\r\n", $headers))) {
+                // Envelope sender = the From address (-f): hosts that do not set it send from the server's own name, which mail providers drop.
+                $fromAddr = (string)(config('contact_from') ?: $to);
+                $fromAddr = preg_match('/<([^>]+)>/', $fromAddr, $mm) ? trim($mm[1]) : trim($fromAddr);
+                $subjectEnc = '=?UTF-8?B?' . base64_encode($subject) . '?=';
+                $sent = filter_var($fromAddr, FILTER_VALIDATE_EMAIL)
+                    ? @mail($to, $subjectEnc, $body, implode("\r\n", $headers), '-f' . $fromAddr)
+                    : @mail($to, $subjectEnc, $body, implode("\r\n", $headers));
+                if ($sent) {
                     db()->prepare('UPDATE contact_messages SET emailed = 1 WHERE id = ?')->execute([$id]);
                 }
             }
