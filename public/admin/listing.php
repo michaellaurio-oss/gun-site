@@ -318,7 +318,7 @@ admin_header($heading, 'listings');
                   $mf = $m['manufacturer'];
               }
               echo '<option value="' . (int)$m['id'] . '"' . ((int)$m['id'] === (int)($v['firearm_id'] ?? 0) ? ' selected' : '') . '>'
-                  . e($m['manufacturer'] . ' ' . $m['model'] . ' — ' . ($m['caliber'] ?? 'caliber not set') . ($m['placeholder'] ? ' (caliber not confirmed)' : '') . ((int)$m['ca_rostered'] === 1 && $m['category'] === 'handgun' ? ' (on CA roster)' : '')) . '</option>';
+                  . e($m['manufacturer'] . ' ' . $m['model'] . ' — ' . ($m['caliber'] ?? 'caliber not set') . ($m['placeholder'] ? ' (caliber not confirmed)' : '') . ($m['category'] !== 'handgun' || $m['ca_rostered'] === null ? '' : ((int)$m['ca_rostered'] === 1 ? ' (on CA roster)' : ' (off CA roster)'))) . '</option>';
           endforeach;
           echo $mf !== null ? '</optgroup>' : ''; ?>
         </select>
