@@ -134,6 +134,7 @@ function admin_header(string $title, string $active = ''): void
     }
     $nav['messages'] = ['Messages', url('admin/messages.php')];
     if (is_owner()) {
+        $nav['hero'] = ['Home page', url('admin/hero.php')];
         $nav['admins'] = ['Admins', url('admin/admins.php')];
         $nav['log'] = ['Activity log', url('admin/log.php')];
     }

@@ -64,7 +64,13 @@ try {
             foreach ($f in Get-RemoteList "photos/$folder/") { $pairs += @('-o', (Join-Path $local $f), ($base + "photos/$folder/$f")); $n++ }
             if ($pairs.Count) { Invoke-Curl $pairs }
         }
-        Write-Host "Done: database + $n photo files."
+        # Home page pictures (Admin > Home page): not in git, so they are backed up here too.
+        $heroDir = Join-Path $dest 'hero'
+        New-Item -ItemType Directory -Force $heroDir | Out-Null
+        $pairs = @()
+        foreach ($f in Get-RemoteList 'assets/hero/') { if ($f -notlike '.*') { $pairs += @('-o', (Join-Path $heroDir $f), ($base + "assets/hero/$f")); $n++ } }
+        if ($pairs.Count) { Invoke-Curl $pairs }
+        Write-Host "Done: database + $n photo files (listing photos + home page pictures)."
         return
     }
 

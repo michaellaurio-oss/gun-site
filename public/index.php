@@ -9,13 +9,9 @@ foreach ($all as $l) {
         $counts[$l['category']]++;
     }
 }
-// The shop's own pictures (assets/hero/, listed in shop.php 'hero_images'); only files that exist are used.
-$heroSlides = [];
-foreach (($GLOBALS['shop']['hero_images'] ?? []) as $f) {
-    if (is_file(__DIR__ . '/assets/hero/' . $f)) {
-        $heroSlides[] = url('assets/hero/' . $f);
-    }
-}
+// The shop's own pictures: Admin > Home page (assets/hero/order.json), else shop.php 'hero_images'.
+require_once __DIR__ . '/app/hero.php';
+$heroSlides = array_map(fn($f) => asset('assets/hero/' . $f), hero_shown());
 $heroPhoto = null;
 foreach ($justListed as $l) {
     if ($l['primary_photo']) {
