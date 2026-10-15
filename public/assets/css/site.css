@@ -598,7 +598,12 @@ textarea.input { padding: 10px 12px; min-height: 140px; resize: vertical; line-h
   .m-fold-body .spec-table { border: 0; }
   .report { padding-top: 24px; gap: 12px; }
   .report h2 { font-size: 22px; }
-  .report-grid { gap: 10px; grid-template-columns: 1fr; }
+  .report-grid { gap: 10px; grid-template-columns: minmax(0, 1fr); }
+  .report-card { min-width: 0; }
   .report-card[open] summary { border-bottom: 1px solid var(--border-soft); }
   .report-card > div { padding: 12px 16px 16px; }
 }
+
+/* Hidden tooltip bubbles near the right edge made the page wider than the phone (the pinned bar followed). */
+html, body { overflow-x: clip; }
+.fact:nth-child(even) .tip-bubble { left: auto; right: 0; }
