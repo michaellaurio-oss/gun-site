@@ -48,6 +48,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     foreach ($ids as $id) {
         $err = set_listing_status($id, $status, $assigned);
         $err === '' ? $ok++ : $fails[$err] = ($fails[$err] ?? 0) + 1;
+        if ($err === '') {
+            audit('status', 'listing', $id, 'Status set to ' . status_name($status), listing_label($id));
+        }
     }
     if ($ok) {
         flash($ok . ' listing' . ($ok === 1 ? '' : 's') . ' set to ' . status_name($status) . '.');

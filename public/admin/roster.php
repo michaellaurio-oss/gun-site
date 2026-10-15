@@ -1,6 +1,6 @@
 <?php
 require __DIR__ . '/_admin.php';
-require_login();
+require_owner();   // roster status decides what may be sold in California
 
 $db = db();
 $today = date('Y-m-d');
@@ -28,6 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $html = (string)file_get_contents($f['tmp_name']);
             }
             $s = roster_import($db, roster_parse($html));
+            audit('roster', 'roster', null, 'Roster ' . ($action === 'refresh' ? 'downloaded' : 'uploaded') . ': ' . $s['rows'] . ' handguns', null, [$s['confirmed'] . ' firearms re-confirmed', $s['dropped'] . ' no longer listed']);
             flash('Roster updated: ' . $s['rows'] . ' handguns. ' . $s['confirmed'] . ' of your firearms re-confirmed as still listed.'
                 . ($s['dropped'] ? ' ' . $s['dropped'] . ' no longer listed: see the warning below.' : ''));
         } elseif ($action === 'link') {
@@ -39,17 +40,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $db->prepare("UPDATE firearms SET ca_rostered = 1, ca_roster_checked_on = ?, ca_roster_entry = ?, updated_at = datetime('now') WHERE id = ? AND category = 'handgun'")
                ->execute([$today, $path, $fid]);
+            audit('roster', 'firearm', $fid, 'Marked on the CA roster', firearm_label($fid), [$path]);
             flash('Marked on the CA roster.');
         } elseif ($action === 'off') {
             $db->prepare("UPDATE firearms SET ca_rostered = 0, ca_roster_checked_on = ?, ca_roster_entry = NULL, updated_at = datetime('now') WHERE id = ? AND category = 'handgun'")
                ->execute([$today, $fid]);
+            audit('roster', 'firearm', $fid, 'Marked NOT on the CA roster', firearm_label($fid));
             flash('Marked not on the CA roster.');
         } elseif ($action === 'clear') {
             $db->prepare("UPDATE firearms SET ca_rostered = NULL, ca_roster_checked_on = NULL, ca_roster_entry = NULL, updated_at = datetime('now') WHERE id = ?")
                ->execute([$fid]);
+            audit('roster', 'firearm', $fid, 'Roster status cleared (not checked)', firearm_label($fid));
             flash('Roster status cleared (not checked).');
         } elseif ($action === 'copy_to_firearms') {
             $s = roster_copy_to_firearms($db);
+            audit('created', 'roster', null, $s['added'] . ' firearms added from the roster');
             flash($s['added'] . ' firearm' . ($s['added'] === 1 ? '' : 's') . ' added to Firearms from the roster'
                 . ($s['skipped'] ? ' (' . $s['skipped'] . ' already there, left as they were)' : '') . '.');
         } elseif ($action === 'confirm_exact') {
@@ -63,6 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $n++;
                 }
             }
+            audit('roster', 'roster', null, $n . ' firearm' . ($n === 1 ? '' : 's') . ' marked on the CA roster (confirm all exact matches)');
             flash($n . ' firearm' . ($n === 1 ? '' : 's') . ' marked on the CA roster.');
         }
     } catch (Throwable $e) {

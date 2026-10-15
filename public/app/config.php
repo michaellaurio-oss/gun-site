@@ -7,8 +7,10 @@ $config = [
     'base_url'            => '/gun-site/',
     // SQLite database file (the data/ folder is blocked from the web by .htaccess).
     'db_path'             => __DIR__ . '/../data/gun_specs.db',
-    // password_hash() of the admin password. Empty = admin login disabled.
+    // password_hash() of the RECOVERY password (the old shared admin password). Empty = admin login disabled.
     'admin_password_hash' => '',
+    // Public address of the site, used in emailed password-reset links (never taken from the request).
+    'site_url'            => 'https://the-laurios.com',
     // Where "Ask about this gun" messages are emailed. Empty = saved to the DB only.
     'contact_to'          => '',
     'contact_from'        => '',

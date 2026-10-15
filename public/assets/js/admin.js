@@ -224,3 +224,18 @@
     });
   });
 })();
+
+// Every password box gets a "Show password" switch (login, change password, reset, ...).
+(function () {
+  Array.prototype.forEach.call(document.querySelectorAll('input[type="password"]'), function (input) {
+    if (input.hasAttribute('data-no-reveal')) return;
+    var label = document.createElement('label');
+    label.className = 'show-pw';
+    var box = document.createElement('input');
+    box.type = 'checkbox';
+    box.addEventListener('change', function () { input.type = box.checked ? 'text' : 'password'; });
+    label.appendChild(box);
+    label.appendChild(document.createTextNode(' Show password'));
+    input.parentNode.insertBefore(label, input.nextSibling);
+  });
+})();

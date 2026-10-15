@@ -161,6 +161,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($assignedStock) {
                 flash('Stock # ' . $assignedStock . ' assigned.');
             }
+            if ($created) {
+                audit('created', 'listing', $id, 'Created listing' . ($added ? ' with ' . $added . ' photo' . ($added === 1 ? '' : 's') : ''), listing_label($id));
+            } else {
+                $changes = $prevListing ? audit_diff($prevListing, $data) : [];
+                if ($changes || $added) {
+                    audit('edited', 'listing', $id, 'Edited listing' . ($added ? ' (+' . $added . ' photo' . ($added === 1 ? '' : 's') . ')' : ''), listing_label($id), $changes);
+                }
+            }
             $fa = $db->prepare('SELECT category, ca_rostered FROM firearms WHERE id = ?');
             $fa->execute([$data['firearm_id']]);
             $fa = $fa->fetch();
@@ -194,6 +202,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $saved = add_listing_photos($db, $id);
         if ($saved) {
             flash($saved . ' photo' . ($saved === 1 ? '' : 's') . ' added.');
+            audit('photos', 'listing', $id, 'Added ' . $saved . ' photo' . ($saved === 1 ? '' : 's'), listing_label($id));
         }
         redirect($self() . '#photos');
     }
@@ -224,11 +233,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $db->prepare("UPDATE listings SET updated_at = datetime('now') WHERE id = ?")->execute([$id]);
         $db->commit();
         array_map('delete_photo_files', $gone);
+        audit('photos', 'listing', $id, 'Changed photos' . ($gone ? ' (' . count($gone) . ' deleted)' : ''), listing_label($id));
         flash('Photos updated.');
         redirect($self() . '#photos');
     }
 
     if ($action === 'delete') {
+        require_owner();   // staff can't delete listings
         if (($_POST['confirm'] ?? '') !== 'DELETE') {
             flash('Type DELETE to confirm.', 'err');
             redirect($self());
@@ -236,11 +247,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ph = $db->prepare('SELECT file_path FROM listing_photos WHERE listing_id = ?');
         $ph->execute([$id]);
         $paths = $ph->fetchAll(PDO::FETCH_COLUMN);
+        $deletedLabel = listing_label($id);
         $db->beginTransaction();
         $db->prepare('DELETE FROM listing_photos WHERE listing_id = ?')->execute([$id]);
         $db->prepare('DELETE FROM listings WHERE id = ?')->execute([$id]);
         $db->commit();
         array_map('delete_photo_files', $paths);   // only once the listing is really gone
+        audit('deleted', 'listing', $id, 'Deleted listing', $deletedLabel);
         flash('Listing deleted.');
         redirect(url('admin/'));
     }
@@ -288,6 +301,7 @@ admin_header($heading, 'listings');
 <div class="crumbs"><a href="<?= e(url('admin/')) ?>">Listings</a> / <?= e($heading) ?></div>
 <div class="admin-head">
   <h1 class="page-title"><?= e($heading) ?></h1>
+  <?php if ($id && ($lc = last_change('listing', $id))): ?><p class="muted small">Last change: <?= e($lc['admin_name']) ?> (<?= e($lc['username']) ?>), <?= e(local_time($lc['at'])) ?> — <?= e($lc['summary']) ?></p><?php endif; ?>
   <?php if ($isPublic): ?>
     <a class="btn btn-outline" href="<?= e(url('gun.php', $listing['stock_number'] ? ['stock' => $listing['stock_number']] : ['id' => $id])) ?>" target="_blank" rel="noopener">View on site</a>
   <?php elseif ($listing): ?>
@@ -529,6 +543,7 @@ admin_header($heading, 'listings');
   <?php endif; ?>
 </section>
 
+<?php if (is_owner()): ?>
 <section class="admin-section danger-zone">
   <h2 style="font-size:20px">Delete listing</h2>
   <p class="muted">Usually it's better to set the status to Sold or Withdrawn, which keeps the record. Deleting removes the listing and its photos permanently.</p>
@@ -540,5 +555,6 @@ admin_header($heading, 'listings');
     <button class="btn btn-outline danger" type="submit">Delete permanently</button>
   </form>
 </section>
+<?php endif; ?>
 <?php endif; ?>
 <?php admin_footer();

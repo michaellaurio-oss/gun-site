@@ -60,7 +60,7 @@ code{background:#F1EFEA;padding:2px 6px;border-radius:4px}
 <?php else: ?>
   <?php if ($msg): ?><div class="msg err" role="alert"><?= htmlspecialchars($msg) ?></div><?php endif; ?>
   <form method="post" autocomplete="off">
-    <label for="pw1">New admin password (at least 12 characters)</label>
+    <label for="pw1">New RECOVERY password (at least 12 characters)</label>
     <input id="pw1" name="pw1" type="password" required minlength="12" autocomplete="new-password">
     <label for="pw2">Type it again</label>
     <input id="pw2" name="pw2" type="password" required minlength="12" autocomplete="new-password">

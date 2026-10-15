@@ -101,6 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['stock_action']) && $m
                 }
                 stock_save((string)file_get_contents($file['tmp_name']), $slug);
                 $clearPreview();
+                audit('photos', 'firearm', $id, 'Uploaded stock photo', firearm_label($id));
                 flash('Stock photo saved.');
                 break;
             case 'find':
@@ -121,6 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['stock_action']) && $m
                 }
                 stock_save((string)file_get_contents($preview['file']), $slug);
                 $clearPreview();
+                audit('photos', 'firearm', $id, 'Saved stock photo from the manufacturer page', firearm_label($id), [$preview['page']]);
                 flash('Stock photo saved.');
                 break;
             case 'discard':
@@ -128,6 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['stock_action']) && $m
                 break;
             case 'remove':
                 stock_delete($slug);
+                audit('photos', 'firearm', $id, 'Removed stock photo', firearm_label($id));
                 flash('Stock photo removed.');
                 break;
         }
@@ -195,11 +198,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $set = implode(', ', array_map(fn($k) => "$k = :$k", array_keys($data)));
             $db->prepare("UPDATE firearms SET $set, updated_at = datetime('now') WHERE id = :id")->execute($data + ['id' => $id]);
             stock_rename((string)$model['slug'], (string)$data['slug']);   // the stock photo is named after the slug
+            $changes = audit_diff($model, $data);
+            if ($changes) {
+                audit('edited', 'firearm', $id, 'Edited firearm', firearm_label($id), $changes);
+            }
             flash('Firearm saved.');
         } else {
             $cols = implode(', ', array_keys($data));
             $db->prepare("INSERT INTO firearms ($cols) VALUES (:" . implode(', :', array_keys($data)) . ')')->execute($data);
             $id = (int)$db->lastInsertId();
+            audit('created', 'firearm', $id, 'Added firearm', firearm_label($id));
             flash($returnListing ? 'Firearm added. Now fill in the details of this gun.' : 'Firearm added.');
         }
         redirect($returnListing ? $backToListing($id) : url('admin/model.php', ['id' => $id]));
@@ -260,6 +268,7 @@ admin_header($heading, 'models');
 ?>
 <div class="crumbs"><a href="<?= e(url('admin/models.php')) ?>">Firearms</a> / <?= e($heading) ?></div>
 <div class="admin-head"><h1 class="page-title"><?= e($heading) ?></h1></div>
+<?php if ($id && ($lc = last_change('firearm', $id))): ?><p class="muted small">Last change: <?= e($lc['admin_name']) ?> (<?= e($lc['username']) ?>), <?= e(local_time($lc['at'])) ?> — <?= e($lc['summary']) ?></p><?php endif; ?>
 <?php if ($model): ?>
   <p class="muted">Changes here apply to every listing of this firearm (<?= count($listings) ?>).
     <a href="<?= e(url('admin/listing.php', ['firearm_id' => $id])) ?>">Add a listing for this firearm</a></p>

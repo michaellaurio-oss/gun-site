@@ -6,10 +6,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_post_csrf();
     $mid = (int)($_POST['id'] ?? 0);
     if (($_POST['action'] ?? '') === 'delete') {
+        require_owner();
         db()->prepare('DELETE FROM contact_messages WHERE id = ?')->execute([$mid]);
+        audit('deleted', 'message', $mid, 'Deleted a contact message');
         flash('Message deleted.');
     } else {
         db()->prepare('UPDATE contact_messages SET handled = 1 - handled WHERE id = ?')->execute([$mid]);
+        audit('edited', 'message', $mid, 'Marked a contact message handled / open');
     }
     redirect_back();
 }

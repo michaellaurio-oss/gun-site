@@ -155,3 +155,7 @@ form.inline { display: inline; margin: 0; }
 .fpanel-grid dd { margin: 0; }
 .fpanel-missing { margin: 10px 0 0; color: #7A4F00; }
 .fpanel-ok { margin: 10px 0 0; }
+
+/* Show-password switch under password boxes */
+.show-pw { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 14px; color: var(--ink-2, #43474C); cursor: pointer; min-height: 32px; }
+.show-pw input { width: 18px; height: 18px; }

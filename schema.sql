@@ -15,6 +15,9 @@ PRAGMA foreign_keys = ON;
 
 DROP TABLE IF EXISTS login_attempts;
 DROP TABLE IF EXISTS ca_roster;
+DROP TABLE IF EXISTS password_resets;
+DROP TABLE IF EXISTS audit_log;
+DROP TABLE IF EXISTS admins;
 DROP TABLE IF EXISTS schema_migrations;
 DROP TABLE IF EXISTS contact_messages;
 DROP TABLE IF EXISTS value_aliases;
@@ -255,8 +258,67 @@ CREATE UNIQUE INDEX idx_ca_roster_model ON ca_roster(manufacturer, model);  -- n
 CREATE INDEX idx_ca_roster_make ON ca_roster(manufacturer);
 
 -- Database updates already included in this file (app/migrate.php skips these).
+-- Admin accounts, password resets and the audit log (migration 009).
+CREATE TABLE admins (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    username             TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    first_name           TEXT NOT NULL,
+    last_name            TEXT NOT NULL,
+    email                TEXT,                               -- for "Forgot password" links
+    mobile               TEXT,
+    password_hash        TEXT NOT NULL,
+    role                 TEXT NOT NULL DEFAULT 'staff' CHECK (role IN ('owner','staff')),
+    active               INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1)),
+    must_change_password INTEGER NOT NULL DEFAULT 0 CHECK (must_change_password IN (0,1)),
+    last_login_at        TEXT,
+    created_at           TEXT NOT NULL DEFAULT (datetime('now')),
+    created_by           TEXT
+);
+
+CREATE TABLE password_resets (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    admin_id   INTEGER NOT NULL REFERENCES admins(id),
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at TEXT NOT NULL,
+    used_at    TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TRIGGER trg_admins_last_owner_upd
+BEFORE UPDATE OF role, active ON admins
+WHEN OLD.role = 'owner' AND OLD.active = 1 AND (NEW.role <> 'owner' OR NEW.active = 0)
+ AND (SELECT COUNT(*) FROM admins WHERE role = 'owner' AND active = 1 AND id <> OLD.id) = 0
+BEGIN
+  SELECT RAISE(ABORT, 'There must always be at least one active owner.');
+END;
+
+CREATE TRIGGER trg_admins_last_owner_del
+BEFORE DELETE ON admins
+WHEN OLD.role = 'owner' AND OLD.active = 1
+ AND (SELECT COUNT(*) FROM admins WHERE role = 'owner' AND active = 1 AND id <> OLD.id) = 0
+BEGIN
+  SELECT RAISE(ABORT, 'There must always be at least one active owner.');
+END;
+
+CREATE TABLE audit_log (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    at           TEXT NOT NULL DEFAULT (datetime('now')),   -- UTC
+    admin_id     INTEGER,                                    -- NULL = recovery login / system
+    username     TEXT NOT NULL,
+    admin_name   TEXT NOT NULL,
+    action       TEXT NOT NULL,                              -- created, edited, deleted, status, photos, login, ...
+    entity_type  TEXT NOT NULL,                              -- listing, firearm, admin, message, roster, session, ...
+    entity_id    INTEGER,
+    entity_label TEXT,                                       -- e.g. "U-0004 Glock G19 Gen3"
+    summary      TEXT NOT NULL,
+    details      TEXT                                        -- changed fields, old -> new
+);
+CREATE INDEX idx_audit_at     ON audit_log(at);
+CREATE INDEX idx_audit_entity ON audit_log(entity_type, entity_id);
+CREATE INDEX idx_audit_admin  ON audit_log(admin_id);
+
 CREATE TABLE schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT (datetime('now')));
-INSERT INTO schema_migrations (version) VALUES ('001'), ('002'), ('003'), ('004'), ('005'), ('006'), ('007'), ('008');
+INSERT INTO schema_migrations (version) VALUES ('001'), ('002'), ('003'), ('004'), ('005'), ('006'), ('007'), ('008'), ('009');
 
 -- What the website shows: guns currently for sale, with their key specs
 CREATE VIEW listings_public AS

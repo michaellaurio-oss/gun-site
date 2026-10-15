@@ -6,6 +6,7 @@ require __DIR__ . '/../app/photos.php';
 require __DIR__ . '/../app/stock_photos.php';
 require __DIR__ . '/../app/migrate.php';
 require __DIR__ . '/../app/roster.php';
+require __DIR__ . '/_auth.php';
 
 header('X-Robots-Tag: noindex, nofollow');
 header('X-Frame-Options: DENY');
@@ -44,8 +45,8 @@ function status_name(string $s): string
 function is_logged_in(): bool
 {
     start_session();
-    if (empty($_SESSION['admin']) || (time() - ($_SESSION['admin_seen'] ?? 0)) > ADMIN_IDLE_SECONDS) {
-        unset($_SESSION['admin']);
+    if (empty($_SESSION['admin']) || (time() - ($_SESSION['admin_seen'] ?? 0)) > ADMIN_IDLE_SECONDS || !refresh_admin_session()) {
+        unset($_SESSION['admin'], $_SESSION['admin_user']);
         return false;
     }
     $_SESSION['admin_seen'] = time();
@@ -57,6 +58,11 @@ function require_login(): void
     if (!is_logged_in()) {
         $back = $_SERVER['REQUEST_URI'] ?? '';
         header('Location: ' . url('admin/login.php', ['next' => $back]));
+        exit;
+    }
+    // A temporary password must be replaced before anything else.
+    if (!empty($_SESSION['admin_user']['must_change']) && basename($_SERVER['SCRIPT_NAME'] ?? '') !== 'account.php') {
+        header('Location: ' . url('admin/account.php'));
         exit;
     }
 }
@@ -122,8 +128,16 @@ function friendly_db_error(Throwable $e): string
 
 function admin_header(string $title, string $active = ''): void
 {
-    $nav = ['listings' => ['Listings', url('admin/')], 'models' => ['Firearms', url('admin/models.php')], 'roster' => ['CA roster', url('admin/roster.php')],
-            'messages' => ['Messages', url('admin/messages.php')]];
+    $nav = ['listings' => ['Listings', url('admin/')], 'models' => ['Firearms', url('admin/models.php')]];
+    if (is_owner()) {
+        $nav['roster'] = ['CA roster', url('admin/roster.php')];
+    }
+    $nav['messages'] = ['Messages', url('admin/messages.php')];
+    if (is_owner()) {
+        $nav['admins'] = ['Admins', url('admin/admins.php')];
+        $nav['log'] = ['Activity log', url('admin/log.php')];
+    }
+    $me = current_admin();
     $unread = 0;
     try {
         $unread = (int)db()->query('SELECT COUNT(*) FROM contact_messages WHERE handled = 0')->fetchColumn();
@@ -157,6 +171,7 @@ function admin_header(string $title, string $active = ''): void
       </nav>
       <div class="admin-bar-right">
         <a href="<?= e(url()) ?>" target="_blank" rel="noopener">View site</a>
+        <?php if ($me): ?><a href="<?= e(url('admin/account.php')) ?>" title="My account and password"><?= e($me['name']) ?> <span class="muted">(<?= $me['role'] === 'owner' ? 'owner' : 'staff' ?>)</span></a><?php endif; ?>
         <form method="post" action="<?= e(url('admin/logout.php')) ?>"><?= csrf_field() ?><button type="submit" class="link-btn">Log out</button></form>
       </div>
     <?php endif; ?>

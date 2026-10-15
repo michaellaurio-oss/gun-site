@@ -4,7 +4,7 @@
 // in value_aliases, so it is mapped automatically when it's typed again or comes from the CA
 // roster (canonical_value()). Removing a remembered spelling doesn't change any firearm.
 require __DIR__ . '/_admin.php';
-require_login();
+require_owner();   // tidying spellings changes many firearms at once
 
 $fields = ['caliber' => 'Calibers', 'action' => 'Actions'];
 $field = req_str('field', 'caliber');

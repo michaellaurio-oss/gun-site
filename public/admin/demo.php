@@ -4,7 +4,7 @@
 // flags are left out) and never touches real listings. Demo rows are found by DEMO_MARK in
 // internal_notes, so "Remove" deletes exactly what "Add" created.
 require __DIR__ . '/_admin.php';
-require_login();
+require_owner();
 
 const DEMO_MARK = 'DEMO internal note: this text must never appear on the public site.';
 
