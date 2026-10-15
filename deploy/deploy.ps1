@@ -73,8 +73,13 @@ try {
         # Manufacturer stock photos (not in git).
         $stockDir = Join-Path $dest 'stock-photos'
         New-Item -ItemType Directory -Force $stockDir | Out-Null
+        # In batches of 30 files: hundreds of -o arguments at once exceed the Windows command-line length.
         $pairs = @()
-        foreach ($f in Get-RemoteList 'stock-photos/') { if ($f -notlike '.*') { $pairs += @('-o', (Join-Path $stockDir $f), ($base + "stock-photos/$f")); $n++ } }
+        foreach ($f in Get-RemoteList 'stock-photos/') {
+            if ($f -like '.*') { continue }
+            $pairs += @('-o', (Join-Path $stockDir $f), ($base + "stock-photos/$f")); $n++
+            if ($pairs.Count -ge 60) { Invoke-Curl $pairs; $pairs = @() }
+        }
         if ($pairs.Count) { Invoke-Curl $pairs }
         Write-Host "Done: database + $n files (listing photos, home page pictures, stock photos)."
         return
