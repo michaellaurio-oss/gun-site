@@ -30,6 +30,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('Password changed.');
             redirect(url('admin/'));
         }
+    } elseif ($action === 'test_mail') {
+        if (!$a['email']) {
+            flash('Add your email address first, save it, then send the test.', 'err');
+        } else {
+            $ok = @mail($a['email'], '=?UTF-8?B?' . base64_encode('Admin test email') . '?=',
+                "This is a test from the admin site. If you can read this, password reset emails will reach you.\n",
+                "Content-Type: text/plain; charset=UTF-8\r\nFrom: " . mail_from());
+            flash($ok ? 'The server accepted the test email for ' . $a['email'] . '. Check your inbox (and spam) in a minute or two.' : 'The server refused to send the email. Password reset emails will not work until the host mail settings are fixed.', $ok ? 'ok' : 'err');
+        }
     } elseif ($action === 'contact') {
         $email = trim((string)($_POST['email'] ?? ''));
         $mobile = trim((string)($_POST['mobile'] ?? ''));
@@ -86,5 +95,10 @@ admin_header('My account');
     </div>
     <div class="form-actions"><button class="btn btn-dark" type="submit">Save</button></div>
   </fieldset>
+</form>
+<form method="post" class="admin-form" action="<?= e(url('admin/account.php')) ?>">
+  <?= csrf_field() ?><input type="hidden" name="action" value="test_mail">
+  <button class="btn btn-outline" type="submit">Send me a test email</button>
+  <span class="hint">Checks that "Forgot password" emails can reach your saved address.</span>
 </form>
 <?php admin_footer();

@@ -42,10 +42,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['id'])) {
         $ids = [(int)$_POST['id']];
     }
+    // Bulk edit of the other fields: blank = leave as it is.
+    $cond = (string)($_POST['condition'] ?? '');
+    $priceIn = trim(str_replace([',', '$'], '', (string)($_POST['price'] ?? '')));
+    $pctIn = trim(str_replace('%', '', (string)($_POST['price_pct'] ?? '')));
+    $consIn = (string)($_POST['consignment'] ?? '');
+    $bulkErr = '';
+    if ($cond !== '' && $cond !== '__none' && !in_array($cond, CONDITIONS, true)) {
+        $bulkErr = 'Unknown condition.';
+    }
+    if ($priceIn !== '' && (!is_numeric($priceIn) || (float)$priceIn < 0)) {
+        $bulkErr = 'The new price must be a number, zero or more.';
+    }
+    if ($pctIn !== '' && (!is_numeric($pctIn) || (float)$pctIn < -90 || (float)$pctIn > 100)) {
+        $bulkErr = 'The price change must be between -90 and 100 percent.';
+    }
+    if ($priceIn !== '' && $pctIn !== '') {
+        $bulkErr = 'Use either a new price or a percent change, not both.';
+    }
+    $hasBulk = $cond !== '' || $priceIn !== '' || $pctIn !== '' || in_array($consIn, ['0', '1'], true);
+    if ($bulkErr !== '') {
+        flash($bulkErr, 'err');
+        redirect_back();
+    }
+    if ($ids && $status === '' && !$hasBulk) {
+        flash('Choose what to change: a status, a condition, a price or consignment.', 'err');
+        redirect_back();
+    }
     $ok = 0;
     $fails = [];
     $assigned = [];
-    foreach ($ids as $id) {
+    foreach ($status === '' ? [] : $ids as $id) {
         $err = set_listing_status($id, $status, $assigned);
         $err === '' ? $ok++ : $fails[$err] = ($fails[$err] ?? 0) + 1;
         if ($err === '') {
@@ -60,6 +87,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     foreach ($fails as $msg => $n) {
         flash($n . ' not changed: ' . $msg, 'err');
+    }
+    if ($hasBulk) {
+        $sel = db()->prepare('SELECT id, new_used, condition, price_usd, consignment FROM listings WHERE id = ?');
+        $edited = 0;
+        foreach ($ids as $id) {
+            $sel->execute([$id]);
+            $cur = $sel->fetch();
+            if (!$cur) {
+                continue;
+            }
+            $new = [];
+            if ($cond !== '') {
+                $new['condition'] = $cond === '__none' ? null : $cond;
+            }
+            if ($priceIn !== '') {
+                $new['price_usd'] = round((float)$priceIn, 2);
+            } elseif ($pctIn !== '' && $cur['price_usd'] !== null) {
+                $new['price_usd'] = round((float)$cur['price_usd'] * (1 + (float)$pctIn / 100), 2);
+            }
+            if (in_array($consIn, ['0', '1'], true)) {
+                $new['consignment'] = (int)$consIn;
+            }
+            if (($new['condition'] ?? '') === 'New' && $cur['new_used'] === 'used') {
+                $fails['A used gun can\'t have the condition New'] = ($fails['A used gun can\'t have the condition New'] ?? 0) + 1;
+                continue;
+            }
+            $diff = audit_diff($cur, $new);
+            if (!$diff) {
+                continue;
+            }
+            $set = implode(', ', array_map(fn($k) => "\"$k\" = :$k", array_keys($new)));
+            db()->prepare("UPDATE listings SET $set, updated_at = datetime('now') WHERE id = :id")->execute($new + ['id' => $id]);
+            audit('edited', 'listing', $id, 'Bulk edit', listing_label($id), $diff);
+            $edited++;
+        }
+        if ($edited) {
+            flash($edited . ' listing' . ($edited === 1 ? '' : 's') . ' updated.');
+        }
+        foreach ($fails as $msg => $n) {
+            if (strpos($msg, 'condition New') !== false) {
+                flash($n . ' not changed: ' . $msg . '.', 'err');
+            }
+        }
     }
     if (!$ids) {
         flash('Tick at least one listing first.', 'err');
@@ -146,11 +216,26 @@ admin_header('Listings', 'listings');
 <form method="post" action="<?= e(url('admin/')) ?>" id="bulk">
   <?= csrf_field() ?>
   <div class="bulk-bar">
-    <label for="bulk-status">Set ticked listings to</label>
+    <strong>Change ticked listings:</strong>
+    <label for="bulk-status">Status</label>
     <select class="select" id="bulk-status" name="status">
-      <?php foreach (LISTING_STATUSES as $s) echo opt($s, status_name($s), 'available'); ?>
+      <?= opt('', '— no change —', '') ?>
+      <?php foreach (LISTING_STATUSES as $s) echo opt($s, status_name($s), ''); ?>
     </select>
-    <button class="btn btn-outline" type="submit">Apply</button>
+    <label for="bulk-condition">Condition</label>
+    <select class="select" id="bulk-condition" name="condition">
+      <?= opt('', '— no change —', '') ?><?= opt('__none', 'Not graded yet', '') ?>
+      <?php foreach (CONDITIONS as $c) echo opt($c, $c, ''); ?>
+    </select>
+    <label for="bulk-price">New price $</label>
+    <input class="input" id="bulk-price" name="price" inputmode="decimal" size="8" placeholder="no change">
+    <label for="bulk-pct">or change price by %</label>
+    <input class="input" id="bulk-pct" name="price_pct" inputmode="decimal" size="6" placeholder="e.g. -10">
+    <label for="bulk-cons">Consignment</label>
+    <select class="select" id="bulk-cons" name="consignment">
+      <?= opt('', '— no change —', '') ?><?= opt('1', 'Yes', '') ?><?= opt('0', 'No', '') ?>
+    </select>
+    <button class="btn btn-outline" type="submit">Apply to ticked</button>
     <span class="muted"><?= $total ?> listing<?= $total === 1 ? '' : 's' ?></span>
   </div>
 

@@ -15,6 +15,7 @@ header('Cache-Control: no-store');
 // Apply any pending database updates (app/migrations) before anything touches the tables.
 try {
     apply_migrations(db());
+    auto_backup();
 } catch (Throwable $e) {
     // Runs before the login check, so visitors see only a generic message; details go to the server log.
     error_log('gun-site: ' . $e->getMessage());
@@ -22,7 +23,7 @@ try {
     exit('The site is being updated. Please try again in a few minutes.');
 }
 
-const ADMIN_IDLE_SECONDS = 4 * 3600;
+const ADMIN_IDLE_SECONDS = 3600;   // signed out after an hour without a click (was 4 h; shared counter computers)
 const LISTING_STATUSES = ['draft', 'coming_soon', 'available', 'on_hold', 'pending', 'sold', 'withdrawn'];
 const CONDITIONS = ['New', 'Like New', 'Excellent', 'Very Good', 'Good', 'Fair', 'Poor'];
 const CATEGORIES = ['handgun', 'rifle', 'shotgun', 'other'];
@@ -134,6 +135,7 @@ function admin_header(string $title, string $active = ''): void
     }
     $nav['messages'] = ['Messages', url('admin/messages.php')];
     if (is_owner()) {
+        $nav['sales'] = ['Sales', url('admin/sales.php')];
         $nav['hero'] = ['Home page', url('admin/hero.php')];
         $nav['admins'] = ['Admins', url('admin/admins.php')];
         $nav['log'] = ['Activity log', url('admin/log.php')];

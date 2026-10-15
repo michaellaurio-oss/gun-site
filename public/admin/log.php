@@ -54,7 +54,8 @@ admin_header('Activity log', 'log');
   <input class="input" id="q" name="q" type="search" value="<?= e($q) ?>" placeholder="Search, e.g. U-0004 or price">
   <button class="btn btn-dark" type="submit">Filter</button>
 </form>
-<p class="muted"><?= number_format($total) ?> entr<?= $total === 1 ? 'y' : 'ies' ?>. Times are Los Angeles time.</p>
+<p class="muted"><?= number_format($total) ?> entr<?= $total === 1 ? 'y' : 'ies' ?>. Times are Los Angeles time.
+  Automatic database copy: <?= ($b = last_auto_backup()) ? e($b) . ' (one a day, last 14 kept)' : 'none yet' ?>.</p>
 
 <?php if (!$rows): ?><p class="muted">Nothing logged yet.</p><?php endif; ?>
 <?php if ($rows): ?>

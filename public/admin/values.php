@@ -6,13 +6,15 @@
 require __DIR__ . '/_admin.php';
 require_owner();   // tidying spellings changes many firearms at once
 
-$fields = ['caliber' => 'Calibers', 'action' => 'Actions'];
+$fields = ['caliber' => 'Calibers', 'action' => 'Actions', 'manufacturer' => 'Manufacturers', 'frame_material' => 'Frame materials',
+           'finish' => 'Finishes', 'barrel_material' => 'Barrel materials', 'stock_grip' => 'Stocks / grips'];
 $field = req_str('field', 'caliber');
 if (!isset($fields[$field])) {
     $field = 'caliber';
 }
 $self = url('admin/values.php', ['field' => $field]);
 $db = db();
+$remembered = in_array($field, ['caliber', 'action'], true);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_post_csrf();
@@ -27,33 +29,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('Tick the spellings to merge, and choose (or type) the one to keep.', 'err');
             redirect($self);
         }
+        if ($field === 'manufacturer') {
+            // Two firearms may not end up with the same make + model.
+            $norm = fn($s) => preg_replace('/[^a-z0-9]/', '', strtolower((string)$s));
+            $seen = [];
+            $clash = [];
+            foreach ($db->query('SELECT id, manufacturer, model FROM firearms')->fetchAll() as $r) {
+                $mk = ($r['manufacturer'] === $into || in_array($r['manufacturer'], $from, true)) ? $into : $r['manufacturer'];
+                $key = $norm($mk) . '|' . $norm($r['model']);
+                if (isset($seen[$key])) {
+                    $clash[] = $into . ' ' . $r['model'];
+                }
+                $seen[$key] = true;
+            }
+            if ($clash) {
+                flash('Not merged: it would create duplicates (' . implode(', ', array_slice(array_unique($clash), 0, 5)) . '). Merge or rename those firearms first.', 'err');
+                redirect($self);
+            }
+        }
         $changed = 0;
         $db->beginTransaction();
+        if ($remembered) {
         // The kept spelling must not itself be an alias, or values would bounce between the two.
         $db->prepare('DELETE FROM value_aliases WHERE field = ? AND alias = ?')->execute([$field, $into]);
+        }
         $upd = $db->prepare("UPDATE firearms SET $field = ?, updated_at = datetime('now') WHERE $field = ?");
         $alias = $db->prepare('INSERT OR REPLACE INTO value_aliases (field, alias, canonical) VALUES (?, ?, ?)');
         $repoint = $db->prepare('UPDATE value_aliases SET canonical = ? WHERE field = ? AND canonical = ?');
         foreach ($from as $v) {
             $upd->execute([$into, $v]);
             $changed += $upd->rowCount();
-            $alias->execute([$field, $v, $into]);
-            $repoint->execute([$into, $field, $v]);   // older aliases that pointed at the merged spelling
+            if ($remembered) {
+                $alias->execute([$field, $v, $into]);
+                $repoint->execute([$into, $field, $v]);   // older aliases that pointed at the merged spelling
+            }
+            audit('edited', 'firearm', null, 'Tidy values: ' . $field . ' "' . $v . '" → "' . $into . '"', null, [$upd->rowCount() . ' firearm(s) changed']);
         }
         $db->commit();
         flash('Merged ' . count($from) . ' spelling' . (count($from) === 1 ? '' : 's') . ' into "' . $into . '" (' . $changed . ' firearm' . ($changed === 1 ? '' : 's') . ' changed). They will be mapped automatically from now on.');
     } elseif ($action === 'forget') {
         $db->prepare('DELETE FROM value_aliases WHERE field = ? AND alias = ?')->execute([$field, (string)($_POST['alias'] ?? '')]);
+        audit('edited', 'firearm', null, 'Tidy values: forgot remembered spelling', null, [(string)($_POST['alias'] ?? '')]);
         flash('Removed. That spelling is no longer changed automatically (firearms were not changed).');
     }
     redirect($self);
 }
 
 $values = $db->query("SELECT $field AS v, COUNT(*) AS n FROM firearms WHERE TRIM(COALESCE($field, '')) <> '' GROUP BY $field ORDER BY $field COLLATE NOCASE")->fetchAll();
-$aliases = $db->prepare('SELECT alias, canonical FROM value_aliases WHERE field = ? ORDER BY canonical COLLATE NOCASE, alias COLLATE NOCASE');
-$aliases->execute([$field]);
-$aliases = $aliases->fetchAll();
-$one = rtrim(strtolower($fields[$field]), 's');
+$aliases = [];
+if ($remembered) {
+    $aliases = $db->prepare('SELECT alias, canonical FROM value_aliases WHERE field = ? ORDER BY canonical COLLATE NOCASE, alias COLLATE NOCASE');
+    $aliases->execute([$field]);
+    $aliases = $aliases->fetchAll();
+}
+$one = ['caliber' => 'caliber', 'action' => 'action', 'manufacturer' => 'manufacturer', 'frame_material' => 'frame material', 'finish' => 'finish', 'barrel_material' => 'barrel material', 'stock_grip' => 'stock / grip'][$field];
 
 admin_header('Tidy values', 'models');
 ?>
@@ -93,7 +122,7 @@ admin_header('Tidy values', 'models');
       <tr>
         <td><input type="checkbox" name="values[]" value="<?= e($r['v']) ?>" id="v<?= $i ?>"></td>
         <td><label for="v<?= $i ?>"><?= e($r['v']) ?></label></td>
-        <td class="mono"><?php if ($field === 'caliber'): ?><a href="<?= e(url('admin/models.php', ['q' => $r['v']])) ?>"><?= (int)$r['n'] ?></a><?php else: ?><?= (int)$r['n'] ?><?php endif; ?></td>
+        <td class="mono"><?php if ($field === 'caliber' || $field === 'manufacturer'): ?><a href="<?= e(url('admin/models.php', ['q' => $r['v']])) ?>"><?= (int)$r['n'] ?></a><?php else: ?><?= (int)$r['n'] ?><?php endif; ?></td>
       </tr>
     <?php endforeach; ?>
     </tbody>
@@ -101,6 +130,7 @@ admin_header('Tidy values', 'models');
   </div>
 </form>
 
+<?php if ($remembered): ?>
 <section class="admin-section">
   <h2 style="font-size:22px">Remembered spellings</h2>
   <?php if (!$aliases): ?>
@@ -123,4 +153,5 @@ admin_header('Tidy values', 'models');
     </div>
   <?php endif; ?>
 </section>
+<?php endif; ?>
 <?php admin_footer();

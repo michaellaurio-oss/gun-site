@@ -47,7 +47,7 @@ admin_header('Firearms', 'models');
 ?>
 <div class="admin-head">
   <h1 class="page-title">Firearms</h1>
-  <span class="head-actions"><?php if (is_owner()): ?><a class="btn btn-outline" href="<?= e(url('admin/values.php')) ?>">Tidy calibers &amp; actions</a><?php endif; ?>
+  <span class="head-actions"><?php if (is_owner()): ?><a class="btn btn-outline" href="<?= e(url('admin/values.php')) ?>">Tidy pick lists</a><?php endif; ?>
   <a class="btn btn-accent" href="<?= e(url('admin/model.php')) ?>">+ Add firearm</a></span>
 </div>
 <p class="muted">One row per make and model: specs, caliber, description and CA roster status, shared by every listing of that firearm.</p>

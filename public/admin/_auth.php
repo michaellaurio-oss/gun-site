@@ -168,3 +168,51 @@ function firearm_label(int $id): string
     $r = $st->fetch();
     return $r ? trim($r['manufacturer'] . ' ' . $r['model']) : '#' . $id;
 }
+/** Sender for emails the admin sends (password links, test mail). */
+function mail_from(): string
+{
+    $from = (string)(config('contact_from') ?: config('contact_to'));
+    if ($from === '') {
+        $host = (string)parse_url((string)config('site_url'), PHP_URL_HOST);
+        $from = 'noreply@' . ($host ?: 'localhost');
+    }
+    return preg_replace('/[\r\n]+/', ' ', $from);
+}
+
+/**
+ * One consistent copy of the database per day (data/backups/gun_specs-YYYYMMDD.db, newest 14 kept),
+ * made the first time anyone opens an admin page that day. data/ is blocked from the web.
+ * Never lets a failure get in the way of the page.
+ */
+function auto_backup(): void
+{
+    try {
+        $dir = dirname((string)config('db_path')) . '/backups';
+        $file = $dir . '/gun_specs-' . gmdate('Ymd') . '.db';
+        if (is_file($file)) {
+            return;
+        }
+        if (!is_dir($dir) && !mkdir($dir, 0755, true)) {
+            return;
+        }
+        db()->exec("VACUUM INTO '" . str_replace("'", "''", $file) . "'");
+        $all = glob($dir . '/gun_specs-*.db') ?: [];
+        sort($all);
+        foreach (array_slice($all, 0, max(0, count($all) - 14)) as $old) {
+            @unlink($old);
+        }
+    } catch (Throwable $e) {
+        error_log('gun-site auto_backup: ' . $e->getMessage());
+    }
+}
+
+/** Date of the newest automatic copy, or null. */
+function last_auto_backup(): ?string
+{
+    $all = glob(dirname((string)config('db_path')) . '/backups/gun_specs-*.db') ?: [];
+    if (!$all) {
+        return null;
+    }
+    sort($all);
+    return preg_match('/(\d{4})(\d{2})(\d{2})\.db$/', end($all), $m) ? "$m[1]-$m[2]-$m[3]" : null;
+}

@@ -44,8 +44,10 @@ admin_header('Messages', 'messages');
     <div class="msg-actions">
       <form method="post" action="<?= e(url('admin/messages.php')) ?>"><?= csrf_field() ?><input type="hidden" name="id" value="<?= (int)$m['id'] ?>">
         <button class="btn btn-outline" type="submit"><?= $m['handled'] ? 'Mark as open' : 'Mark as handled' ?></button></form>
+      <?php if (is_owner()): ?>
       <form method="post" action="<?= e(url('admin/messages.php')) ?>"><?= csrf_field() ?><input type="hidden" name="id" value="<?= (int)$m['id'] ?>"><input type="hidden" name="action" value="delete">
         <button class="link-btn" type="submit">Delete</button></form>
+      <?php endif; ?>
     </div>
   </article>
 <?php endforeach; ?>

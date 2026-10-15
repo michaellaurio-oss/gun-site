@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db->prepare("INSERT INTO password_resets (admin_id, token_hash, expires_at) VALUES (?, ?, datetime('now', '+1 hour'))")
                ->execute([(int)$a['id'], hash('sha256', $token)]);
             $link = rtrim((string)config('site_url'), '/') . url('admin/reset.php', ['token' => $token]);
-            $from = (string)(config('contact_from') ?: config('contact_to'));
+            $from = mail_from();
             $headers = ['Content-Type: text/plain; charset=UTF-8'];
             if ($from !== '') {
                 $headers[] = 'From: ' . preg_replace('/[\r\n]+/', ' ', $from);
