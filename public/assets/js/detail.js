@@ -148,6 +148,18 @@
     if (e.target === viewer || e.target.classList.contains('viewer-img')) close();
   });
 
+  // Swipe the main photo on the page (mostly horizontal drags only, so scrolling still works)
+  if (photos.length > 1) {
+    var mx = null, my = null;
+    main.addEventListener('touchstart', function (e) { mx = e.touches[0].clientX; my = e.touches[0].clientY; }, { passive: true });
+    main.addEventListener('touchend', function (e) {
+      if (mx === null) return;
+      var dx = e.changedTouches[0].clientX - mx, dy = e.changedTouches[0].clientY - my;
+      mx = null;
+      if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) step(dx < 0 ? 1 : -1);
+    });
+  }
+
   // Swipe on touch screens
   var x0 = null;
   viewer.addEventListener('touchstart', function (e) { x0 = e.touches[0].clientX; }, { passive: true });
