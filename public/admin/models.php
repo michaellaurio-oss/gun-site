@@ -16,6 +16,12 @@ if ($show === 'placeholder') {
 if ($show === 'roster') {
     $where[] = "category = 'handgun' AND ca_rostered IS NULL";
 }
+if ($show === 'on') {
+    $where[] = 'category = \'handgun\' AND ca_rostered = 1';
+}
+if ($show === 'off') {
+    $where[] = 'category = \'handgun\' AND ca_rostered = 0';
+}
 if ($show === 'nospecs') {
     $where[] = 'barrel_length_in IS NULL AND weight_oz IS NULL';
 }
@@ -32,6 +38,8 @@ $rows = $st->fetchAll();
 $stat = db()->query("SELECT COUNT(*) total,
     SUM(data_notes LIKE '%Caliber is a placeholder%') placeholder,
     SUM(category = 'handgun' AND ca_rostered IS NULL) roster,
+    SUM(category = 'handgun' AND ca_rostered = 1) onroster,
+    SUM(category = 'handgun' AND ca_rostered = 0) offroster,
     SUM(barrel_length_in IS NULL AND weight_oz IS NULL) nospecs FROM firearms")->fetch();
 $link = fn($s) => url('admin/models.php', ['show' => $s, 'q' => $q]);
 
@@ -47,6 +55,8 @@ admin_header('Firearms', 'models');
 <div class="status-pills">
   <a href="<?= e($link('')) ?>"<?= $show === '' ? ' aria-current="true"' : '' ?>>All <span><?= (int)$stat['total'] ?></span></a>
   <a href="<?= e($link('placeholder')) ?>"<?= $show === 'placeholder' ? ' aria-current="true"' : '' ?>>Caliber to confirm <span><?= (int)$stat['placeholder'] ?></span></a>
+  <a href="<?= e($link('on')) ?>"<?= $show === 'on' ? ' aria-current="true"' : '' ?>>On roster <span><?= (int)$stat['onroster'] ?></span></a>
+  <a href="<?= e($link('off')) ?>"<?= $show === 'off' ? ' aria-current="true"' : '' ?>>Not on roster <span><?= (int)$stat['offroster'] ?></span></a>
   <a href="<?= e($link('roster')) ?>"<?= $show === 'roster' ? ' aria-current="true"' : '' ?>>Roster not checked <span><?= (int)$stat['roster'] ?></span></a>
   <a href="<?= e($link('nospecs')) ?>"<?= $show === 'nospecs' ? ' aria-current="true"' : '' ?>>No specs yet <span><?= (int)$stat['nospecs'] ?></span></a>
 </div>
