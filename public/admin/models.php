@@ -20,14 +20,17 @@ if ($show === 'on') {
     $where[] = 'category = \'handgun\' AND ca_rostered = 1';
 }
 if ($show === 'off') {
-    $where[] = 'category = \'handgun\' AND ca_rostered = 0';
+    $where[] = 'category = \'handgun\' AND ca_rostered = 0 AND ca_exempt = 0';
+}
+if ($show === 'exempt') {
+    $where[] = 'category = \'handgun\' AND ca_exempt = 1';
 }
 if ($show === 'nospecs') {
     $where[] = 'barrel_length_in IS NULL AND weight_oz IS NULL';
 }
 $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 $st = db()->prepare(
-    "SELECT f.id, f.manufacturer, f.model, f.category, f.caliber, f.ca_rostered, f.barrel_length_in, f.weight_oz,
+    "SELECT f.id, f.manufacturer, f.model, f.category, f.caliber, f.ca_rostered, f.ca_exempt, f.barrel_length_in, f.weight_oz,
             f.data_notes LIKE '%Caliber is a placeholder%' AS placeholder,
             (SELECT COUNT(*) FROM listings l WHERE l.firearm_id = f.id) AS listings
        FROM firearms f $sqlWhere
@@ -39,7 +42,8 @@ $stat = db()->query("SELECT COUNT(*) total,
     SUM(data_notes LIKE '%Caliber is a placeholder%') placeholder,
     SUM(category = 'handgun' AND ca_rostered IS NULL) roster,
     SUM(category = 'handgun' AND ca_rostered = 1) onroster,
-    SUM(category = 'handgun' AND ca_rostered = 0) offroster,
+    SUM(category = 'handgun' AND ca_rostered = 0 AND ca_exempt = 0) offroster,
+    SUM(category = 'handgun' AND ca_exempt = 1) exempt,
     SUM(barrel_length_in IS NULL AND weight_oz IS NULL) nospecs FROM firearms")->fetch();
 $link = fn($s) => url('admin/models.php', ['show' => $s, 'q' => $q]);
 
@@ -57,6 +61,7 @@ admin_header('Firearms', 'models');
   <a href="<?= e($link('placeholder')) ?>"<?= $show === 'placeholder' ? ' aria-current="true"' : '' ?>>Caliber to confirm <span><?= (int)$stat['placeholder'] ?></span></a>
   <a href="<?= e($link('on')) ?>"<?= $show === 'on' ? ' aria-current="true"' : '' ?>>On roster <span><?= (int)$stat['onroster'] ?></span></a>
   <a href="<?= e($link('off')) ?>"<?= $show === 'off' ? ' aria-current="true"' : '' ?>>Not on roster <span><?= (int)$stat['offroster'] ?></span></a>
+  <a href="<?= e($link('exempt')) ?>"<?= $show === 'exempt' ? ' aria-current="true"' : '' ?>>Roster exempt <span><?= (int)$stat['exempt'] ?></span></a>
   <a href="<?= e($link('roster')) ?>"<?= $show === 'roster' ? ' aria-current="true"' : '' ?>>Roster not checked <span><?= (int)$stat['roster'] ?></span></a>
   <a href="<?= e($link('nospecs')) ?>"<?= $show === 'nospecs' ? ' aria-current="true"' : '' ?>>No specs yet <span><?= (int)$stat['nospecs'] ?></span></a>
 </div>
@@ -77,7 +82,7 @@ admin_header('Firearms', 'models');
       <td><a class="strong" href="<?= e(url('admin/model.php', ['id' => $r['id']])) ?>"><?= e($r['manufacturer'] . ' ' . $r['model']) ?></a></td>
       <td><?= e(type_label($r['category'])) ?></td>
       <td><?= e($r['caliber'] ?? '') ?><?= $r['placeholder'] ? ' <span class="st st-on_hold">confirm</span>' : '' ?></td>
-      <td><?= $r['category'] !== 'handgun' ? '<span class="muted">n/a</span>' : ($r['ca_rostered'] === null ? '<span class="st st-draft">not checked</span>' : ((int)$r['ca_rostered'] ? 'On roster' : 'Off roster · LEO only when new')) ?></td>
+      <td><?= $r['category'] !== 'handgun' ? '<span class="muted">n/a</span>' : ($r['ca_rostered'] === null ? '<span class="st st-draft">not checked</span>' : ((int)$r['ca_exempt'] ? 'Roster exempt' : ((int)$r['ca_rostered'] ? 'On roster' : 'Off roster · LEO only when new'))) ?></td>
       <td><?= $r['barrel_length_in'] !== null || $r['weight_oz'] !== null ? 'Yes' : '<span class="muted">—</span>' ?></td>
       <td class="mono"><a href="<?= e(url('admin/listing.php', ['firearm_id' => $r['id']])) ?>" title="Add a listing for this firearm">+</a> <?= (int)$r['listings'] ?></td>
     </tr>

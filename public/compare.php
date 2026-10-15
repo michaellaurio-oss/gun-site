@@ -101,7 +101,11 @@ $groups = [
         ['Condition', false, fn($l) => cmp_cell(cmp_str($l['condition']))],
         ['Est. round count', true, fn($l) => cmp_cell($l['est_round_count'] !== null ? number_format((int)$l['est_round_count']) : null)],
         ['CA roster', false, function ($l, $f, $i) use ($n) {
-            $r = roster_label($l['category'], $l['ca_rostered']);
+            $r = roster_label($l['category'], $l['ca_rostered'], $l['ca_exempt'] ?? 0);
+            if ($r === EXEMPT_LABEL) {
+                $tip = tooltip(e(EXEMPT_LABEL) . icon('info', 14), EXEMPT_NOTE, 'cmp-tip');
+                return cmp_cell($r, '', $i >= $n / 2 ? '<span class="tip-right">' . $tip . '</span>' : $tip);
+            }
             if ($r === 'On roster') {
                 return cmp_cell($r, '', '<span class="ok">' . icon('check', 16) . 'On roster</span>');
             }

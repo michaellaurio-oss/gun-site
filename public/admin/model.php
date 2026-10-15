@@ -165,8 +165,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // One spelling per caliber / action (known aliases become the usual spelling).
     $data['caliber'] = canonical_value('caliber', $data['caliber']);
     $data['action'] = canonical_value('action', $data['action']);
+    $data['ca_exempt'] = ($_POST['ca_rostered'] ?? '') === 'x' ? 1 : 0;   // "Exempt" is stored as not on the roster + the exempt flag
     if ($data['category'] !== 'handgun') {
         $data['ca_rostered'] = null;
+        $data['ca_exempt'] = 0;
     }
     if ($data['ca_rostered'] !== 1) {
         $data['ca_roster_entry'] = null;   // a roster link only makes sense for on-roster firearms
@@ -403,7 +405,8 @@ admin_header($heading, 'models');
             </span>
           <?php elseif ($type === 'roster'): ?>
             <select class="select" id="<?= $col ?>" name="<?= $col ?>">
-              <?= opt('', 'Not checked / not a handgun', $value ?? '') ?><?= opt('1', 'On the roster', $value ?? '') ?><?= opt('0', 'Not on the roster — LEO Sales Only when new', $value ?? '') ?>
+              <?php $rosterSel = !empty($v['ca_exempt']) ? 'x' : ($value ?? ''); ?>
+              <?= opt('', 'Not checked / not a handgun', $rosterSel) ?><?= opt('1', 'On the roster', $rosterSel) ?><?= opt('0', 'Not on the roster — LEO Sales Only when new', $rosterSel) ?><?= opt('x', 'Exempt — single-action revolver (not on the roster, new may be sold to anyone eligible)', $rosterSel) ?>
             </select>
           <?php else: ?>
             <input class="input<?= $type === 'num' ? ' mono' : '' ?>" id="<?= $col ?>" name="<?= $col ?>" type="<?= $type === 'date' ? 'date' : 'text' ?>"<?= $type === 'num' ? ' inputmode="decimal"' : '' ?> value="<?= e($type === 'num' && $value !== null ? num($value, 4) : ($value ?? '')) ?>">

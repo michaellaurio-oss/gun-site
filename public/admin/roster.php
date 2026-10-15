@@ -38,17 +38,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!(int)$ok->fetchColumn()) {
                 throw new RuntimeException('That roster entry no longer exists. Refresh the page and try again.');
             }
-            $db->prepare("UPDATE firearms SET ca_rostered = 1, ca_roster_checked_on = ?, ca_roster_entry = ?, updated_at = datetime('now') WHERE id = ? AND category = 'handgun'")
+            $db->prepare("UPDATE firearms SET ca_rostered = 1, ca_exempt = 0, ca_roster_checked_on = ?, ca_roster_entry = ?, updated_at = datetime('now') WHERE id = ? AND category = 'handgun'")
                ->execute([$today, $path, $fid]);
             audit('roster', 'firearm', $fid, 'Marked on the CA roster', firearm_label($fid), [$path]);
             flash('Marked on the CA roster.');
         } elseif ($action === 'off') {
-            $db->prepare("UPDATE firearms SET ca_rostered = 0, ca_roster_checked_on = ?, ca_roster_entry = NULL, updated_at = datetime('now') WHERE id = ? AND category = 'handgun'")
+            $db->prepare("UPDATE firearms SET ca_rostered = 0, ca_exempt = 0, ca_roster_checked_on = ?, ca_roster_entry = NULL, updated_at = datetime('now') WHERE id = ? AND category = 'handgun'")
                ->execute([$today, $fid]);
             audit('roster', 'firearm', $fid, 'Marked NOT on the CA roster', firearm_label($fid));
             flash('Marked not on the CA roster.');
+        } elseif ($action === 'exempt') {
+            $db->prepare("UPDATE firearms SET ca_rostered = 0, ca_exempt = 1, ca_roster_checked_on = ?, ca_roster_entry = NULL, updated_at = datetime('now') WHERE id = ? AND category = 'handgun'")
+               ->execute([$today, $fid]);
+            audit('roster', 'firearm', $fid, 'Marked roster-exempt (single-action revolver)', firearm_label($fid));
+            flash('Marked exempt from the CA roster.');
         } elseif ($action === 'clear') {
-            $db->prepare("UPDATE firearms SET ca_rostered = NULL, ca_roster_checked_on = NULL, ca_roster_entry = NULL, updated_at = datetime('now') WHERE id = ?")
+            $db->prepare("UPDATE firearms SET ca_rostered = NULL, ca_exempt = 0, ca_roster_checked_on = NULL, ca_roster_entry = NULL, updated_at = datetime('now') WHERE id = ?")
                ->execute([$fid]);
             audit('roster', 'firearm', $fid, 'Roster status cleared (not checked)', firearm_label($fid));
             flash('Roster status cleared (not checked).');
@@ -92,7 +97,7 @@ $dropped = roster_dropped($db);
 
 $where = "category = 'handgun'" . ($show === 'review' ? ' AND ca_rostered IS NULL' : '');
 $handguns = $db->query("SELECT * FROM firearms WHERE $where ORDER BY manufacturer COLLATE NOCASE, model COLLATE NOCASE")->fetchAll();
-$counts = $db->query("SELECT COUNT(*) total, SUM(ca_rostered IS NULL) unchecked, SUM(ca_rostered = 1) onr, SUM(ca_rostered = 0) offr FROM firearms WHERE category = 'handgun'")->fetch();
+$counts = $db->query("SELECT COUNT(*) total, SUM(ca_rostered IS NULL) unchecked, SUM(ca_rostered = 1) onr, SUM(ca_rostered = 0 AND ca_exempt = 0) offr, SUM(ca_exempt = 1) exr FROM firearms WHERE category = 'handgun'")->fetch();
 
 $exactCount = 0;
 $matches = [];
@@ -207,7 +212,7 @@ admin_header('CA roster', 'roster');
   <div class="status-pills">
     <a href="<?= e(url('admin/roster.php', ['show' => 'review'])) ?>"<?= $show === 'review' ? ' aria-current="true"' : '' ?>>To check <span><?= (int)$counts['unchecked'] ?></span></a>
     <a href="<?= e(url('admin/roster.php', ['show' => 'all'])) ?>"<?= $show === 'all' ? ' aria-current="true"' : '' ?>>All handguns <span><?= (int)$counts['total'] ?></span></a>
-    <span class="muted small">On roster <?= (int)$counts['onr'] ?> · Not on roster <?= (int)$counts['offr'] ?></span>
+    <span class="muted small">On roster <?= (int)$counts['onr'] ?> · Not on roster <?= (int)$counts['offr'] ?> · Exempt <?= (int)$counts['exr'] ?></span>
   </div>
 
   <?php if (!$status['rows']): ?>
@@ -229,6 +234,7 @@ admin_header('CA roster', 'roster');
         <a class="strong" href="<?= e(url('admin/model.php', ['id' => $fid])) ?>"><?= e($f['manufacturer'] . ' ' . $f['model']) ?></a>
         <?php if ($f['ca_rostered'] === null): ?><span class="st st-draft">Not checked</span>
         <?php elseif ((int)$f['ca_rostered'] === 1): ?><span class="st st-available">On roster</span>
+        <?php elseif (!empty($f['ca_exempt'])): ?><span class="st st-available">Roster exempt (single-action revolver)</span>
         <?php else: ?><span class="st st-on_hold">Not on roster · LEO Sales Only when new</span><?php endif; ?>
         <?php if ($f['ca_roster_checked_on']): ?><span class="muted small">checked <?= e($f['ca_roster_checked_on']) ?></span><?php endif; ?>
       </div>
@@ -257,7 +263,11 @@ admin_header('CA roster', 'roster');
 
       <div class="roster-item-actions">
         <a class="btn btn-outline btn-sm" href="<?= e(url('admin/roster.php', ['q' => $f['manufacturer'] . ' ' . preg_replace('/\bG(?=\d)/', '', $f['model']), 'for' => $fid])) ?>">Search the roster</a>
-        <?php if ((string)$f['ca_rostered'] !== '0'): ?>
+        <?php if (empty($f['ca_exempt'])): ?>
+          <form method="post" action="<?= e(url('admin/roster.php', ['show' => $show])) ?>" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="exempt"><input type="hidden" name="firearm_id" value="<?= $fid ?>">
+            <button class="btn btn-outline btn-sm" type="submit">Exempt (single-action revolver)</button></form>
+        <?php endif; ?>
+        <?php if ((string)$f['ca_rostered'] !== '0' || !empty($f['ca_exempt'])): ?>
           <form method="post" action="<?= e(url('admin/roster.php', ['show' => $show])) ?>" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="off"><input type="hidden" name="firearm_id" value="<?= $fid ?>">
             <button class="btn btn-outline btn-sm" type="submit">Not on roster (LEO Sales Only when new)</button></form>
         <?php endif; ?>

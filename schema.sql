@@ -81,6 +81,7 @@ CREATE TABLE firearms (
     trigger_pull_da_kg   REAL GENERATED ALWAYS AS (ROUND(trigger_pull_da_lb * 0.453592, 2)) VIRTUAL,
 
     -- California
+    ca_exempt            INTEGER NOT NULL DEFAULT 0 CHECK (ca_exempt IN (0,1)),  -- 1 = exempt from the roster (single-action revolvers); always with ca_rostered = 0 (migration 011)
     ca_rostered          INTEGER CHECK (ca_rostered IN (0,1)),  -- handguns only: 1 = on current CA DOJ Handgun Roster, 0 = not on roster, NULL = not checked / not applicable (long guns)
     ca_roster_checked_on TEXT,                          -- date the roster status was last verified (YYYY-MM-DD)
     ca_roster_entry      TEXT,                          -- ca_roster.detail_path this model was matched to (see ca_roster)
@@ -318,7 +319,7 @@ CREATE INDEX idx_audit_entity ON audit_log(entity_type, entity_id);
 CREATE INDEX idx_audit_admin  ON audit_log(admin_id);
 
 CREATE TABLE schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT (datetime('now')));
-INSERT INTO schema_migrations (version) VALUES ('001'), ('002'), ('003'), ('004'), ('005'), ('006'), ('007'), ('008'), ('009'), ('010');
+INSERT INTO schema_migrations (version) VALUES ('001'), ('002'), ('003'), ('004'), ('005'), ('006'), ('007'), ('008'), ('009'), ('010'), ('011');
 
 -- What the website shows: guns currently for sale, with their key specs
 CREATE VIEW listings_public AS
@@ -335,7 +336,7 @@ SELECT l.id AS listing_id, l.stock_number,
        COALESCE(l.spec_action, f.action) AS action,
        COALESCE(l.spec_capacity, f.capacity) AS capacity,
        CASE WHEN COALESCE(l.spec_capacity, f.capacity) > 10 THEN '(10 round limit in CA)' END AS ca_capacity_note,
-       f.ca_rostered, f.ca_roster_checked_on,
+       f.ca_rostered, f.ca_exempt, f.ca_roster_checked_on,
        COALESCE(l.spec_barrel_length_in, f.barrel_length_in) AS barrel_length_in,
        CASE WHEN l.spec_barrel_length_in IS NOT NULL THEN ROUND(l.spec_barrel_length_in * 25.4, 1) ELSE f.barrel_length_mm END AS barrel_length_mm,
        COALESCE(l.spec_overall_length_in, f.overall_length_in) AS overall_length_in,

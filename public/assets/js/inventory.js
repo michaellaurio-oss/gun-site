@@ -16,7 +16,7 @@
   var GROUPS = [
     { id: 'newused', label: 'New / Used', order: ['New', 'Used'] },
     { id: 'type', label: 'Type', order: ['Handgun', 'Rifle', 'Shotgun', 'Other'], display: function (v) { return TYPE_LABEL[v] || v; } },
-    { id: 'roster', label: 'CA Roster', order: ['On roster', 'Off roster', 'Not yet checked', 'Not required (long guns)'] },
+    { id: 'roster', label: 'CA Roster', order: ['On roster', 'Off roster', NOTES.exemptLabel, 'Not yet checked', 'Not required (long guns)'] },
     { id: 'make', label: 'Manufacturer', searchLabel: 'Search manufacturers' },
     { id: 'caliber', label: 'Caliber', searchLabel: 'Search calibers' },
     { id: 'condition', label: 'Condition', order: ['New', 'Like New', 'Excellent', 'Very Good', 'Good', 'Fair', 'Poor'] },
@@ -176,6 +176,7 @@
     h += '</dl><div class="card-foot"><div class="tags">';
     h += c.newused === 'New' ? '<span class="tag tag-new">New</span>' : '<span class="tag">Used' + (c.condition ? ' · ' + esc(c.condition) : '') + '</span>';
     if (c.roster === 'On roster') h += '<span class="tag tag-roster">CA Roster</span>';
+    if (c.roster === NOTES.exemptLabel) h += tooltip(esc(NOTES.exemptLabel) + icon('info', 12), NOTES.exempt, 'tag tag-help');
     if (c.roster === 'Off roster' && !c.leo) h += tooltip('Off roster' + icon('info', 12), NOTES.offRoster, 'tag tag-help');
     if (c.mods === 'Modified') h += '<span class="tag">Modified</span>';
     h += '</div><span class="card-price">' + esc(c.priceText) + '</span></div></div></article>';

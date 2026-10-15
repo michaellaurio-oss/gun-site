@@ -147,6 +147,8 @@ function status_info(string $status): ?array
 
 const OFF_ROSTER_NOTE = 'Not on current CA handgun roster';
 const CA_CAPACITY_NOTE = '(10 round limit in CA)';
+const EXEMPT_LABEL = 'Roster exempt';
+const EXEMPT_NOTE = 'Single-action revolver: exempt from the California handgun roster, so it is not on the roster and may be sold new to any eligible buyer.';
 const LEO_LABEL = 'LEO Sales Only';
 const LEO_NOTE = 'New handgun not on the current CA handgun roster: available to qualifying law enforcement buyers only.';
 
@@ -154,9 +156,9 @@ const LEO_NOTE = 'New handgun not on the current CA handgun roster: available to
  * "LEO Sales Only": a NEW handgun whose model is marked off the CA roster (Michael, 2026-09-30).
  * Worked out, not stored, so it follows the model's roster status. Unchecked (NULL) models aren't flagged.
  */
-function leo_only(?string $newUsed, ?string $category, $caRostered): bool
+function leo_only(?string $newUsed, ?string $category, $caRostered, $exempt = 0): bool
 {
-    return $newUsed === 'new' && $category === 'handgun' && $caRostered !== null && (int)$caRostered === 0;
+    return $newUsed === 'new' && $category === 'handgun' && $caRostered !== null && (int)$caRostered === 0 && !(int)$exempt;
 }
 
 /** "LEO Sales Only" badge with LEO_NOTE on hover/focus. $class: extra classes (placement, tip-below...). */
@@ -187,10 +189,13 @@ function canonical_value(string $field, ?string $value): ?string
 }
 
 /** Roster facet value for a listing. */
-function roster_label(string $category, $caRostered): string
+function roster_label(string $category, $caRostered, $exempt = 0): string
 {
     if ($category !== 'handgun') {
         return 'Not required (long guns)';
+    }
+    if ((int)$exempt) {
+        return EXEMPT_LABEL;
     }
     if ($caRostered === null) {
         return 'Not yet checked';

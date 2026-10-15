@@ -23,12 +23,12 @@ function firearm_panel_html(int $firearmId): string
         ? num($f['weight_oz'], 1) . ' oz / ' . num($f['weight_g'], 0) . ' g'
         : num($f['weight_oz'] / 16, 2) . ' lb / ' . num($f['weight_oz'] * 0.0283495, 2) . ' kg');
 
-    $roster = roster_label((string)$f['category'], $f['ca_rostered']);
+    $roster = roster_label((string)$f['category'], $f['ca_rostered'], $f['ca_exempt'] ?? 0);
     $rosterHtml = e($roster);
     if ($isHandgun && $f['ca_rostered'] !== null && $f['ca_roster_checked_on']) {
         $rosterHtml .= ' <span class="muted">(checked ' . e($f['ca_roster_checked_on']) . ')</span>';
     }
-    if ($isHandgun && $f['ca_rostered'] !== null && (int)$f['ca_rostered'] === 0) {
+    if ($isHandgun && $f['ca_rostered'] !== null && (int)$f['ca_rostered'] === 0 && !(int)($f['ca_exempt'] ?? 0)) {
         $rosterHtml .= ' <span class="muted">— new = LEO Sales Only</span>';
     }
 

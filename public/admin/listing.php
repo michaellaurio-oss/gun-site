@@ -169,10 +169,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     audit('edited', 'listing', $id, 'Edited listing' . ($added ? ' (+' . $added . ' photo' . ($added === 1 ? '' : 's') . ')' : ''), listing_label($id), $changes);
                 }
             }
-            $fa = $db->prepare('SELECT category, ca_rostered FROM firearms WHERE id = ?');
+            $fa = $db->prepare('SELECT category, ca_rostered, ca_exempt FROM firearms WHERE id = ?');
             $fa->execute([$data['firearm_id']]);
             $fa = $fa->fetch();
-            if ($fa && leo_only($data['new_used'], $fa['category'], $fa['ca_rostered'])) {
+            if ($fa && leo_only($data['new_used'], $fa['category'], $fa['ca_rostered'], $fa['ca_exempt'])) {
                 flash('This new handgun is off the CA roster, so the site shows it as "' . LEO_LABEL . '".');
             }
             unset($_SESSION['form']);
@@ -269,7 +269,7 @@ if (isset($_GET['keep']) && !empty($_SESSION['form'])) {
 unset($_SESSION['form']);
 $val = fn(string $k) => e($v[$k] ?? '');
 
-$models = $db->query("SELECT id, manufacturer, model, category, caliber, ca_rostered, data_notes LIKE '%Caliber is a placeholder%' AS placeholder FROM firearms ORDER BY manufacturer COLLATE NOCASE, model COLLATE NOCASE")->fetchAll();
+$models = $db->query("SELECT id, manufacturer, model, category, caliber, ca_rostered, ca_exempt, data_notes LIKE '%Caliber is a placeholder%' AS placeholder FROM firearms ORDER BY manufacturer COLLATE NOCASE, model COLLATE NOCASE")->fetchAll();
 
 // Coming back from "Add a new firearm": pre-select the firearm that was just created.
 $picked = (int)($_GET['firearm_id'] ?? 0);
@@ -333,7 +333,7 @@ admin_header($heading, 'listings');
                   $mf = $m['manufacturer'];
               }
               echo '<option value="' . (int)$m['id'] . '"' . ((int)$m['id'] === (int)($v['firearm_id'] ?? 0) ? ' selected' : '') . '>'
-                  . e($m['manufacturer'] . ' ' . $m['model'] . ' — ' . ($m['caliber'] ?? 'caliber not set') . ($m['placeholder'] ? ' (caliber not confirmed)' : '') . ($m['category'] !== 'handgun' || $m['ca_rostered'] === null ? '' : ((int)$m['ca_rostered'] === 1 ? ' (on CA roster)' : ' (off CA roster)'))) . '</option>';
+                  . e($m['manufacturer'] . ' ' . $m['model'] . ' — ' . ($m['caliber'] ?? 'caliber not set') . ($m['placeholder'] ? ' (caliber not confirmed)' : '') . ($m['category'] !== 'handgun' || $m['ca_rostered'] === null ? '' : ((int)$m['ca_exempt'] ? ' (roster exempt)' : ((int)$m['ca_rostered'] === 1 ? ' (on CA roster)' : ' (off CA roster)')))) . '</option>';
           endforeach;
           echo $mf !== null ? '</optgroup>' : ''; ?>
         </select>

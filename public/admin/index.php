@@ -170,7 +170,7 @@ $page = min($page, $pages);
 
 $st = db()->prepare(
     "SELECT l.id, l.stock_number, l.status, l.price_usd, l.new_used, l.condition, l.updated_at, l.title,
-            f.manufacturer, f.model, f.category, f.caliber, f.ca_rostered,
+            f.manufacturer, f.model, f.category, f.caliber, f.ca_rostered, f.ca_exempt,
             (SELECT COUNT(*) FROM listing_photos p WHERE p.listing_id = l.id) AS photos
        FROM listings l JOIN firearms f ON f.id = l.firearm_id
        $sqlWhere
@@ -257,7 +257,7 @@ admin_header('Listings', 'listings');
         <td><span class="st st-<?= e($r['status']) ?>"><?= e(status_name($r['status'])) ?></span></td>
         <td class="mono"><?= $r['price_usd'] !== null ? e(money($r['price_usd'])) : '<span class="muted">—</span>' ?></td>
         <td><?= $r['new_used'] === 'new' ? 'New' : 'Used' ?><?= $r['condition'] ? ' · ' . e($r['condition']) : '' ?>
-          <?php if (leo_only($r['new_used'], $r['category'], $r['ca_rostered'])): ?><div><span class="leo-badge-static small-leo"><?= e(LEO_LABEL) ?></span></div><?php endif; ?></td>
+          <?php if (leo_only($r['new_used'], $r['category'], $r['ca_rostered'], $r['ca_exempt'])): ?><div><span class="leo-badge-static small-leo"><?= e(LEO_LABEL) ?></span></div><?php endif; ?></td>
         <td class="mono"><?= (int)$r['photos'] ?: '<span class="muted">0</span>' ?></td>
         <td class="small muted"><?= e(substr((string)$r['updated_at'], 0, 10)) ?></td>
       </tr>

@@ -183,6 +183,7 @@ function render_card(array $c, bool $showStock = true, bool $compare = false): s
         <?php if ($c['newused'] === 'New'): ?><span class="tag tag-new">New</span>
         <?php else: ?><span class="tag">Used<?= $c['condition'] !== '' ? ' · ' . e($c['condition']) : '' ?></span><?php endif; ?>
         <?php if ($c['roster'] === 'On roster'): ?><span class="tag tag-roster">CA Roster</span><?php endif; ?>
+        <?php if ($c['roster'] === EXEMPT_LABEL): ?><?= tooltip(e(EXEMPT_LABEL) . icon('info', 12), EXEMPT_NOTE, 'tag tag-help') ?><?php endif; ?>
         <?php if ($c['roster'] === 'Off roster' && empty($c['leo'])): ?><?= tooltip('Off roster' . icon('info', 12), OFF_ROSTER_NOTE, 'tag tag-help') ?><?php endif; ?>
         <?php if ($c['mods'] === 'Modified'): ?><span class="tag">Modified</span><?php endif; ?>
       </div>

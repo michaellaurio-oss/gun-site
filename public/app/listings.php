@@ -26,7 +26,7 @@ function stocked_types(): array
 /** Listed "LEO Sales Only" guns: new handguns whose model is off the CA roster (see leo_only()). */
 function leo_count(): int
 {
-    return (int)db()->query("SELECT COUNT(*) FROM listings_public WHERE new_used = 'new' AND category = 'handgun' AND ca_rostered = 0")->fetchColumn();
+    return (int)db()->query("SELECT COUNT(*) FROM listings_public WHERE new_used = 'new' AND category = 'handgun' AND ca_rostered = 0 AND ca_exempt = 0")->fetchColumn();
 }
 
 function find_public_listing(?string $stock, ?int $id): ?array
@@ -190,8 +190,8 @@ function card_data(array $l): array
         'weight'    => weight_pair($l['weight_oz'], $l['category']),
         'newused'   => $isNew ? 'New' : 'Used',
         'condition' => $l['condition'] ?? '',
-        'roster'    => roster_label($l['category'], $l['ca_rostered']),
-        'leo'       => leo_only($l['new_used'], $l['category'], $l['ca_rostered']),
+        'roster'    => roster_label($l['category'], $l['ca_rostered'], $l['ca_exempt'] ?? 0),
+        'leo'       => leo_only($l['new_used'], $l['category'], $l['ca_rostered'], $l['ca_exempt'] ?? 0),
         'mods'      => trim((string)$l['modifications']) !== '' || !empty($l['specs_modified']) ? 'Modified' : 'Factory original',
         'status'    => $l['status'],
         'price'     => $l['price_usd'] !== null ? (float)$l['price_usd'] : null,

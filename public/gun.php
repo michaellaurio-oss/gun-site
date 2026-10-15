@@ -135,6 +135,7 @@ page_header($fullName, $l['new_used'] === 'new' ? 'new' : 'used', ['description'
         <div class="fact"><dt>Condition</dt><dd><?= e($l['condition'] ?? 'Not yet graded') ?></dd></div>
         <div class="fact"><dt>CA Roster</dt><dd>
           <?php if ($c['roster'] === 'On roster'): ?><span class="ok"><?= icon('check', 16) ?>On roster</span>
+          <?php elseif ($c['roster'] === EXEMPT_LABEL): ?><?= tooltip(e(EXEMPT_LABEL) . icon('info', 15), EXEMPT_NOTE) ?>
           <?php elseif ($c['roster'] === 'Off roster'): ?><?= tooltip('Off roster' . icon('info', 15), OFF_ROSTER_NOTE) ?>
           <?php elseif ($c['roster'] === 'Not yet checked'): ?>Not yet checked
           <?php else: ?>Not required<?php endif; ?>

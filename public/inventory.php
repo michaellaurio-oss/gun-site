@@ -18,7 +18,7 @@ foreach (['available', 'on_hold', 'pending', 'coming_soon'] as $s) {
 $data = [
     'items'  => $cards,
     'status' => $status,
-    'notes'  => ['offRoster' => OFF_ROSTER_NOTE, 'capacity' => CA_CAPACITY_NOTE, 'stockPhoto' => STOCK_PHOTO_NOTE, 'leo' => LEO_NOTE, 'leoLabel' => LEO_LABEL],
+    'notes'  => ['offRoster' => OFF_ROSTER_NOTE, 'capacity' => CA_CAPACITY_NOTE, 'stockPhoto' => STOCK_PHOTO_NOTE, 'leo' => LEO_NOTE, 'leoLabel' => LEO_LABEL, 'exempt' => EXEMPT_NOTE, 'exemptLabel' => EXEMPT_LABEL],
 ];
 
 // Server-rendered first page for browsers without JavaScript (JS replaces it).
