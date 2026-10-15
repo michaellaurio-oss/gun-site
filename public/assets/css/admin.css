@@ -140,3 +140,8 @@ form.inline { display: inline; margin: 0; }
 .head-actions { display: inline-flex; flex-wrap: wrap; gap: 10px; }
 .values-bar { flex-wrap: wrap; }
 .values-bar .choice-new { margin-top: 0; }
+
+/* Listing editor: this gun's own specs */
+.spec-overrides > summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
+.spec-group { font-size: 14px; margin: 16px 0 8px; color: var(--ink-2, #43474C); }
+.spec-overrides .input::placeholder { color: #8a8d92; }

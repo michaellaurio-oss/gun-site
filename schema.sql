@@ -133,6 +133,30 @@ CREATE TABLE listings (
     description        TEXT,
     additional_comments TEXT,                           -- anything else for buyers
     internal_notes     TEXT,                            -- private: never shown on the website
+    -- This gun's own figures (migration 008); NULL = the model's. Never written back to firearms.
+    spec_caliber                TEXT,
+    spec_action                 TEXT,
+    spec_capacity_note          TEXT,
+    spec_barrel_material        TEXT,
+    spec_barrel_twist           TEXT,
+    spec_thread_pattern         TEXT,
+    spec_choke                  TEXT,
+    spec_frame_material         TEXT,
+    spec_stock_grip             TEXT,
+    spec_sights                 TEXT,
+    spec_capacity               INTEGER,
+    spec_barrel_length_in       REAL,
+    spec_overall_length_in      REAL,
+    spec_height_in              REAL,
+    spec_width_in               REAL,
+    spec_sight_radius_in        REAL,
+    spec_length_of_pull_in      REAL,
+    spec_chamber_length_in      REAL,
+    spec_weight_oz              REAL,
+    spec_weight_empty_mag_oz    REAL,
+    spec_weight_loaded_oz       REAL,
+    spec_trigger_pull_lb        REAL,
+    spec_trigger_pull_da_lb     REAL,
     listed_at          TEXT,                            -- date it went live
     sold_at            TEXT,
     sold_price_usd     REAL,
@@ -232,7 +256,7 @@ CREATE INDEX idx_ca_roster_make ON ca_roster(manufacturer);
 
 -- Database updates already included in this file (app/migrate.php skips these).
 CREATE TABLE schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT (datetime('now')));
-INSERT INTO schema_migrations (version) VALUES ('001'), ('002'), ('003'), ('004'), ('005'), ('006'), ('007');
+INSERT INTO schema_migrations (version) VALUES ('001'), ('002'), ('003'), ('004'), ('005'), ('006'), ('007'), ('008');
 
 -- What the website shows: guns currently for sale, with their key specs
 CREATE VIEW listings_public AS
@@ -244,11 +268,42 @@ SELECT l.id AS listing_id, l.stock_number,
        l.description AS listing_description, l.additional_comments, l.listed_at,
        (SELECT p.file_path FROM listing_photos p WHERE p.listing_id = l.id
          ORDER BY p.is_primary DESC, p.sort_order LIMIT 1) AS primary_photo,
-       f.id AS firearm_id, f.slug, f.manufacturer, f.model, f.category, f.caliber, f.action,
-       f.capacity,
-       CASE WHEN f.capacity > 10 THEN '(10 round limit in CA)' END AS ca_capacity_note,
-       f.ca_rostered, f.ca_roster_checked_on, f.barrel_length_in, f.barrel_length_mm, f.overall_length_in, f.overall_length_mm,
-       f.weight_oz, f.weight_g, f.sights, f.msrp_usd,
+       f.id AS firearm_id, f.slug, f.manufacturer, f.model, f.category,
+       COALESCE(l.spec_caliber, f.caliber) AS caliber,
+       COALESCE(l.spec_action, f.action) AS action,
+       COALESCE(l.spec_capacity, f.capacity) AS capacity,
+       CASE WHEN COALESCE(l.spec_capacity, f.capacity) > 10 THEN '(10 round limit in CA)' END AS ca_capacity_note,
+       f.ca_rostered, f.ca_roster_checked_on,
+       COALESCE(l.spec_barrel_length_in, f.barrel_length_in) AS barrel_length_in,
+       CASE WHEN l.spec_barrel_length_in IS NOT NULL THEN ROUND(l.spec_barrel_length_in * 25.4, 1) ELSE f.barrel_length_mm END AS barrel_length_mm,
+       COALESCE(l.spec_overall_length_in, f.overall_length_in) AS overall_length_in,
+       CASE WHEN l.spec_overall_length_in IS NOT NULL THEN ROUND(l.spec_overall_length_in * 25.4, 1) ELSE f.overall_length_mm END AS overall_length_mm,
+       COALESCE(l.spec_weight_oz, f.weight_oz) AS weight_oz,
+       CASE WHEN l.spec_weight_oz IS NOT NULL THEN ROUND(l.spec_weight_oz * 28.3495, 0) ELSE f.weight_g END AS weight_g,
+       COALESCE(l.spec_sights, f.sights) AS sights, f.msrp_usd,
+       (l.spec_caliber IS NOT NULL
+        OR l.spec_action IS NOT NULL
+        OR l.spec_capacity_note IS NOT NULL
+        OR l.spec_barrel_material IS NOT NULL
+        OR l.spec_barrel_twist IS NOT NULL
+        OR l.spec_thread_pattern IS NOT NULL
+        OR l.spec_choke IS NOT NULL
+        OR l.spec_frame_material IS NOT NULL
+        OR l.spec_stock_grip IS NOT NULL
+        OR l.spec_sights IS NOT NULL
+        OR l.spec_capacity IS NOT NULL
+        OR l.spec_barrel_length_in IS NOT NULL
+        OR l.spec_overall_length_in IS NOT NULL
+        OR l.spec_height_in IS NOT NULL
+        OR l.spec_width_in IS NOT NULL
+        OR l.spec_sight_radius_in IS NOT NULL
+        OR l.spec_length_of_pull_in IS NOT NULL
+        OR l.spec_chamber_length_in IS NOT NULL
+        OR l.spec_weight_oz IS NOT NULL
+        OR l.spec_weight_empty_mag_oz IS NOT NULL
+        OR l.spec_weight_loaded_oz IS NOT NULL
+        OR l.spec_trigger_pull_lb IS NOT NULL
+        OR l.spec_trigger_pull_da_lb IS NOT NULL) AS specs_modified,
        f.description AS model_description
 FROM listings l
 JOIN firearms f ON f.id = l.firearm_id

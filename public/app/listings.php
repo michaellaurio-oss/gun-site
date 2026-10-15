@@ -44,7 +44,7 @@ function find_public_listing(?string $stock, ?int $id): ?array
 }
 
 /** Model specs for the detail page (public columns only; no data_notes / sourcing). */
-function firearm_specs(int $firearmId): array
+function firearm_specs(int $firearmId, ?int $listingId = null): array
 {
     $st = db()->prepare(
         'SELECT caliber, action, capacity, capacity_note,
@@ -58,7 +58,80 @@ function firearm_specs(int $firearmId): array
            FROM firearms WHERE id = ?'
     );
     $st->execute([$firearmId]);
-    return $st->fetch() ?: [];
+    $f = $st->fetch() ?: [];
+    return $f && $listingId ? apply_spec_overrides($f, $listingId) : $f;
+}
+
+/**
+ * Specs that can be set for one specific gun (listings.spec_<name>, migration 008). NULL = the model's.
+ * [label, kind, group]; kind text | int | in | oz | lb (imperial is entered, metric is worked out).
+ */
+const SPEC_OVERRIDE_FIELDS = [
+    'caliber'             => ['Caliber', 'text', 'Basics'],
+    'action'              => ['Action', 'text', 'Basics'],
+    'capacity'            => ['Capacity (rounds)', 'int', 'Basics'],
+    'capacity_note'       => ['Capacity note', 'text', 'Basics'],
+    'frame_material'      => ['Frame material', 'text', 'Basics'],
+    'barrel_length_in'    => ['Barrel length (in)', 'in', 'Size and weight'],
+    'overall_length_in'   => ['Overall length (in)', 'in', 'Size and weight'],
+    'height_in'           => ['Height (in)', 'in', 'Size and weight'],
+    'width_in'            => ['Width (in)', 'in', 'Size and weight'],
+    'sight_radius_in'     => ['Sight radius (in)', 'in', 'Size and weight'],
+    'length_of_pull_in'   => ['Length of pull (in)', 'in', 'Size and weight'],
+    'weight_oz'           => ['Weight, unloaded (oz)', 'oz', 'Size and weight'],
+    'weight_empty_mag_oz' => ['Weight, empty magazine (oz)', 'oz', 'Size and weight'],
+    'weight_loaded_oz'    => ['Weight, loaded (oz)', 'oz', 'Size and weight'],
+    'trigger_pull_lb'     => ['Trigger pull, single action (lb)', 'lb', 'Barrel, trigger and sights'],
+    'trigger_pull_da_lb'  => ['Trigger pull, double action (lb)', 'lb', 'Barrel, trigger and sights'],
+    'barrel_material'     => ['Barrel material', 'text', 'Barrel, trigger and sights'],
+    'barrel_twist'        => ['Barrel twist', 'text', 'Barrel, trigger and sights'],
+    'thread_pattern'      => ['Thread pattern', 'text', 'Barrel, trigger and sights'],
+    'chamber_length_in'   => ['Chamber length (in)', 'in', 'Barrel, trigger and sights'],
+    'choke'               => ['Choke', 'text', 'Barrel, trigger and sights'],
+    'stock_grip'          => ['Stock / grip', 'text', 'Barrel, trigger and sights'],
+    'sights'              => ['Sights', 'text', 'Barrel, trigger and sights'],
+];
+
+/**
+ * This gun's own figures (listings.spec_*) replace the model's in the spec table and compare page.
+ * Display only: nothing is written back to the firearm or the CA roster.
+ */
+function apply_spec_overrides(array $f, int $listingId): array
+{
+    $cols = implode(', ', array_map(fn($k) => 'spec_' . $k, array_keys(SPEC_OVERRIDE_FIELDS)));
+    $st = db()->prepare("SELECT $cols FROM listings WHERE id = ?");
+    $st->execute([$listingId]);
+    $o = $st->fetch();
+    if (!$o) {
+        return $f;
+    }
+    $metric = ['in' => ['_in', '_mm', 25.4, 1], 'oz' => ['_oz', '_g', 28.3495, 0], 'lb' => ['_lb', '_kg', 0.453592, 2]];
+    foreach (SPEC_OVERRIDE_FIELDS as $k => [, $kind]) {
+        $v = $o['spec_' . $k];
+        if ($v === null || $v === '') {
+            continue;
+        }
+        if ($kind === 'text') {
+            $f[$k] = (string)$v;
+        } elseif ($kind === 'int') {
+            $f[$k] = (int)$v;
+        } else {
+            [$suf, $msuf, $factor, $dp] = $metric[$kind];
+            $f[$k] = (float)$v;
+            $f[substr($k, 0, -strlen($suf)) . $msuf] = round((float)$v * $factor, $dp);
+        }
+    }
+    if ($o['spec_capacity'] !== null && $o['spec_capacity_note'] === null) {
+        $f['capacity_note'] = null;   // the model's note ("optional 17, 19... rounds") no longer fits
+    }
+    if ($o['spec_weight_oz'] !== null) {   // the model's other weights no longer fit either
+        foreach (['weight_empty_mag' => 'spec_weight_empty_mag_oz', 'weight_loaded' => 'spec_weight_loaded_oz'] as $k => $c) {
+            if ($o[$c] === null) {
+                $f[$k . '_oz'] = $f[$k . '_g'] = null;
+            }
+        }
+    }
+    return $f;
 }
 
 /** "Stock photo" tag with the hover/focus note. $class positions it (cards, gun page, compare page). */
@@ -115,7 +188,7 @@ function card_data(array $l): array
         'condition' => $l['condition'] ?? '',
         'roster'    => roster_label($l['category'], $l['ca_rostered']),
         'leo'       => leo_only($l['new_used'], $l['category'], $l['ca_rostered']),
-        'mods'      => trim((string)$l['modifications']) !== '' ? 'Modified' : 'Factory original',
+        'mods'      => trim((string)$l['modifications']) !== '' || !empty($l['specs_modified']) ? 'Modified' : 'Factory original',
         'status'    => $l['status'],
         'price'     => $l['price_usd'] !== null ? (float)$l['price_usd'] : null,
         'priceText' => $l['price_usd'] !== null ? money($l['price_usd']) : ($l['status'] === 'coming_soon' ? 'Price TBA' : 'Call for price'),

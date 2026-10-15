@@ -16,7 +16,7 @@ if (!$l) {
     exit;
 }
 
-$f = firearm_specs((int)$l['firearm_id']);
+$f = firearm_specs((int)$l['firearm_id'], (int)$l['listing_id']);
 $photos = listing_photos((int)$l['listing_id']);
 $c = card_data($l);
 // A new gun without its own photos shows the model's stock photo, labelled as such.

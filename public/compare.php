@@ -87,7 +87,7 @@ foreach ($ids as $id) {
         if (!$photos && !empty($c['stockPhoto'])) {
             $photos = [$c['photo']];   // new gun, no own photos: the model's stock photo
         }
-        $cols[] = ['l' => $l, 'f' => firearm_specs((int)$l['firearm_id']), 'c' => $c, 'name' => $l['manufacturer'] . ' ' . $c['model'], 'photos' => $photos];
+        $cols[] = ['l' => $l, 'f' => firearm_specs((int)$l['firearm_id'], (int)$l['listing_id']), 'c' => $c, 'name' => $l['manufacturer'] . ' ' . $c['model'], 'photos' => $photos];
     }
 }
 $n = count($cols);

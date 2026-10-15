@@ -85,6 +85,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'sold_at'             => in_text('sold_at', 10),
             'sold_price_usd'      => in_num('sold_price_usd'),
         ];
+        // This gun's own specs (blank = the model's). Never written to the firearm or the CA roster.
+        foreach (SPEC_OVERRIDE_FIELDS as $k => [, $kind]) {
+            $data['spec_' . $k] = $kind === 'text' ? in_text('spec_' . $k, 200) : ($kind === 'int' ? in_int('spec_' . $k) : in_num('spec_' . $k));
+            if ($kind !== 'text' && $data['spec_' . $k] !== null && $data['spec_' . $k] < 0) {
+                $specErr = SPEC_OVERRIDE_FIELDS[$k][0] . " can't be negative.";
+            }
+        }
         $assignedStock = null;
         if (in_array($data['status'], PUBLIC_STATUSES, true)) {
             if (!$data['listed_at']) {
@@ -107,6 +114,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($data[$k] !== null && (!$d || $d->format('Y-m-d') !== $data[$k])) {
                     throw new RuntimeException($label . ' must be a real date like 2026-09-30.');
                 }
+            }
+            if (!empty($specErr)) {
+                throw new RuntimeException($specErr);
             }
             foreach (['price_usd' => 'Price', 'sold_price_usd' => 'Sold price'] as $k => $label) {
                 if ($data[$k] !== null && $data[$k] < 0) {
@@ -331,6 +341,43 @@ admin_header($heading, 'listings');
       </div>
       <label class="check span-2"><input type="checkbox" name="consignment" value="1"<?= !empty($v['consignment']) ? ' checked' : '' ?>> Consignment (not shown on the site)</label>
     </div>
+  </fieldset>
+
+  <?php
+  // This gun's own specs. Grey text = the model's figure (used when the box is empty).
+  $modelSpecs = !empty($v['firearm_id']) ? firearm_specs((int)$v['firearm_id']) : [];
+  $anySpec = false;
+  foreach (SPEC_OVERRIDE_FIELDS as $k => $_) {
+      if (($v['spec_' . $k] ?? '') !== '' && ($v['spec_' . $k] ?? null) !== null) { $anySpec = true; break; }
+  }
+  ?>
+  <fieldset>
+    <legend>This gun's specs</legend>
+    <details class="spec-overrides"<?= $anySpec || ($v['new_used'] ?? 'used') === 'used' ? ' open' : '' ?>>
+      <summary>Fill in only what is different from the factory model<?= $anySpec ? ' (some are set)' : '' ?></summary>
+      <p class="hint">For example a threaded barrel, another caliber or a bigger magazine. The grey text is the model's figure,
+        used when a box is empty. These figures belong to this gun only: they never change the firearm or its CA roster status.
+        Imperial values; metric is worked out for the site. The grey figures are for the firearm saved on this listing.</p>
+      <?php
+      $groupName = null;
+      foreach (SPEC_OVERRIDE_FIELDS as $k => [$label, $kind, $group]):
+          if ($group !== $groupName) {
+              echo ($groupName !== null ? '</div>' : '') . '<h3 class="spec-group">' . e($group) . '</h3><div class="grid-2">';
+              $groupName = $group;
+          }
+          $mv = $modelSpecs[$k] ?? null;
+          $cur = $v['spec_' . $k] ?? null;
+          ?>
+        <div class="field">
+          <label for="spec_<?= e($k) ?>"><?= e($label) ?></label>
+          <input class="input<?= $kind === 'text' ? '' : ' mono' ?>" id="spec_<?= e($k) ?>" name="spec_<?= e($k) ?>"
+                 <?= $kind === 'text' ? '' : 'inputmode="decimal"' ?>
+                 value="<?= $cur !== null && $cur !== '' ? e($kind === 'text' ? (string)$cur : num($cur, $kind === 'int' ? 0 : 2)) : '' ?>"
+                 placeholder="<?= $mv !== null && $mv !== '' ? e($kind === 'text' ? (string)$mv : num($mv, $kind === 'int' ? 0 : 2)) : '—' ?>">
+        </div>
+      <?php endforeach;
+      echo $groupName !== null ? '</div>' : ''; ?>
+    </details>
   </fieldset>
 
   <fieldset>
