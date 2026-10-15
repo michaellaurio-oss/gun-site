@@ -99,9 +99,13 @@ const SPEC_OVERRIDE_FIELDS = [
 function apply_spec_overrides(array $f, int $listingId): array
 {
     $cols = implode(', ', array_map(fn($k) => 'spec_' . $k, array_keys(SPEC_OVERRIDE_FIELDS)));
-    $st = db()->prepare("SELECT $cols FROM listings WHERE id = ?");
-    $st->execute([$listingId]);
-    $o = $st->fetch();
+    try {
+        $st = db()->prepare("SELECT $cols FROM listings WHERE id = ?");
+        $st->execute([$listingId]);
+        $o = $st->fetch();
+    } catch (PDOException $e) {
+        return $f;   // migration 008 not applied yet (it runs when the admin is opened): show the model's figures
+    }
     if (!$o) {
         return $f;
     }

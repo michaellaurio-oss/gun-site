@@ -16,7 +16,7 @@ This repo holds the code with **demo data only**; the shop's real inventory neve
   with a shareable link and a "differences only" view.
 - **Stock photos**: new guns without their own photos show the manufacturer image, clearly tagged.
 - **Admin** (password protected): listings with bulk status changes and photo upload (resized in
-  the browser), firearm catalog, CA roster, tidy-up of caliber / action spellings, contact messages.
+  the browser), per-gun spec overrides (a used gun can differ from the factory model), firearm catalog, CA roster, tidy-up of caliber / action spellings, contact messages.
 - Contact form with CSRF protection, honeypot and rate limiting.
 - Accessible: keyboard-reachable tooltips, 44px targets, ARIA tabs, focus-trapped photo dialog.
 
