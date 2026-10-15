@@ -175,6 +175,7 @@ page_header($fullName, $l['new_used'] === 'new' ? 'new' : 'used', ['description'
               <img src="<?= e(photo_url($first['file_path'])) ?>" alt="<?= e($fullName . ($first['caption'] ? ' – ' . $first['caption'] : '')) ?>">
               <span class="enlarge-hint"><?= icon('zoom', 14) ?>Click to enlarge</span>
             </button>
+            <?php if (count($photos) > 1): ?><span class="photo-count" id="photo-count" aria-hidden="true">1 / <?= count($photos) ?></span><?php endif; ?>
             <?php if ($isStockPhoto): ?><?= stock_photo_tag('detail-stock-tag tip-below') ?><?php endif; ?>
             <?php if (count($photos) > 1): ?>
               <button type="button" class="photo-nav prev" id="photo-prev" aria-label="Previous photo"><span><?= icon('prev', 22) ?></span></button>
@@ -196,7 +197,7 @@ page_header($fullName, $l['new_used'] === 'new' ? 'new' : 'used', ['description'
         <?php endif; ?>
       </div>
 
-      <div class="tabpanel" role="tabpanel" id="panel-specs" aria-labelledby="tab-specs" tabindex="0" data-start-hidden>
+      <?php ob_start(); ?>
         <?php if ($rows): ?>
           <table class="spec-table">
             <caption class="sr-only">Factory specifications for the <?= e($fullName) ?></caption>
@@ -215,8 +216,15 @@ page_header($fullName, $l['new_used'] === 'new' ? 'new' : 'used', ['description'
         <?php else: ?>
           <div class="empty-note">Specifications for this model are being researched.</div>
         <?php endif; ?>
+      <?php $specHtml = ob_get_clean(); ?>
+      <div class="tabpanel" role="tabpanel" id="panel-specs" aria-labelledby="tab-specs" tabindex="0" data-start-hidden>
+        <?= $specHtml ?>
       </div>
     </div>
+    <details class="m-fold m-specs" id="m-specs">
+      <summary><h2>Specifications</h2></summary>
+      <div class="m-fold-body"><?= $specHtml ?></div>
+    </details>
   </section>
 
   <?php
@@ -233,7 +241,7 @@ page_header($fullName, $l['new_used'] === 'new' ? 'new' : 'used', ['description'
     <h2 id="report-title">Condition report</h2>
     <div class="report-grid">
       <?php foreach ($report as $title => $body): ?>
-        <div class="report-card"><h3><?= e($title) ?></h3><div><?= e(trim((string)$body)) ?></div></div>
+        <details class="report-card" open><summary><h3><?= e($title) ?></h3></summary><div><?= e(trim((string)$body)) ?></div></details>
       <?php endforeach; ?>
     </div>
   </section>
@@ -255,6 +263,10 @@ page_header($fullName, $l['new_used'] === 'new' ? 'new' : 'used', ['description'
 </dialog>
 <script type="application/json" id="photo-data"><?= json_encode(array_map(fn($p) => ['src' => photo_url($p['file_path']), 'caption' => (string)$p['caption']], $photos), JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?></script>
 <?php endif; ?>
+<div class="m-bar" role="region" aria-label="Ask or call about this gun">
+  <a class="btn btn-accent" href="<?= e(url('contact.php', ['stock' => $l['stock_number'] ?? '', 'gun' => $fullName])) ?>">Ask about this gun</a>
+  <?= phone_link('btn btn-outline', icon('phone') . 'Call') ?>
+</div>
 <div id="cmp-tray" data-compare-url="<?= e(url('compare.php')) ?>" data-add-url="<?= e(url('inventory.php')) ?>" hidden></div>
 <script src="<?= e(asset('assets/js/compare.js')) ?>" defer></script>
 <script src="<?= e(asset('assets/js/detail.js')) ?>" defer></script>

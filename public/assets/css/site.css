@@ -568,3 +568,37 @@ textarea.input { padding: 10px 12px; min-height: 140px; resize: vertical; line-h
 .hero-slides img { position: absolute; inset: 0; opacity: 0; transition: opacity .9s ease; }
 .hero-slides img.is-on { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .hero-slides img { transition: none; } }
+
+/* ---- Gun page on phones (Michael approved the mockup 2026-10-15) ----
+   Photo first, then name/price, facts, fold-away specs and condition report, and Ask / Call pinned to the bottom. */
+.m-bar, .m-specs { display: none; }
+.photo-count { position: absolute; right: 12px; bottom: 12px; padding: 3px 10px; border-radius: 999px; background: rgba(22,24,26,.78); color: #fff; font-family: var(--font-mono); font-size: 12px; pointer-events: none; }
+.report-card summary { list-style: none; cursor: default; }
+.report-card summary::-webkit-details-marker, .m-fold summary::-webkit-details-marker { display: none; }
+.m-fold summary { list-style: none; }
+@media (max-width: 999px) {
+  .detail { gap: 16px; padding-top: 12px; }
+  .detail-media { order: -1; }
+  .detail-head { order: 0; gap: 14px; }
+  .detail-info { order: 1; }
+  .m-specs { order: 2; display: block; }
+  .detail-media .tabs, #panel-specs { display: none !important; }
+  #panel-photos { display: block !important; padding-top: 0; }
+  .detail-info .cta-grid { display: none; }
+  .m-bar { display: flex; gap: 10px; position: fixed; left: 0; right: 0; bottom: var(--tray-h, 0px); z-index: 50; padding: 10px var(--gutter) calc(10px + env(safe-area-inset-bottom, 0px)); background: var(--surface); border-top: 1px solid var(--border-strong); }
+  .m-bar .btn { flex: 1; min-width: 0; padding-left: 8px; padding-right: 8px; }
+  body:has(.m-bar) { padding-bottom: 84px; }
+  .m-fold, .report-card { padding: 0; }
+  .m-fold { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card); }
+  .m-fold summary, .report-card summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 0 16px; cursor: pointer; }
+  .m-fold summary h2 { margin: 0; font-size: 17px; font-weight: 600; font-family: var(--font-body); letter-spacing: 0; }
+  .m-fold summary::after, .report-card summary::after { content: ''; width: 9px; height: 9px; border-right: 2px solid var(--text-3); border-bottom: 2px solid var(--text-3); transform: rotate(45deg); margin-right: 4px; flex-shrink: 0; }
+  .m-fold[open] summary::after, .report-card[open] summary::after { transform: rotate(-135deg); }
+  .m-fold-body { border-top: 1px solid var(--border); }
+  .m-fold-body .spec-table { border: 0; }
+  .report { padding-top: 24px; gap: 12px; }
+  .report h2 { font-size: 22px; }
+  .report-grid { gap: 10px; grid-template-columns: 1fr; }
+  .report-card[open] summary { border-bottom: 1px solid var(--border-soft); }
+  .report-card > div { padding: 12px 16px 16px; }
+}

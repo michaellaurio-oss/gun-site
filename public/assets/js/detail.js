@@ -26,6 +26,25 @@
   });
   if (tabs.length) select(location.hash === '#specs' ? tabs[1] : tabs[0], false);
 
+  // ---------- Phones: condition report folds away (first card stays open); pinned bar sits above the compare tray ----------
+  if (window.matchMedia && window.matchMedia('(max-width: 999px)').matches) {
+    Array.prototype.slice.call(document.querySelectorAll('.report-card')).forEach(function (d, i) {
+      if (i > 0) d.removeAttribute('open');
+    });
+  }
+  var trayHost = document.getElementById('cmp-tray');
+  if (trayHost) {
+    var setTray = function () {
+      var t = trayHost.querySelector('.cmp-tray');
+      document.documentElement.style.setProperty('--tray-h', (t && !trayHost.hidden ? t.offsetHeight : 0) + 'px');
+    };
+    new MutationObserver(function () {
+      setTray();
+      var t = trayHost.querySelector('.cmp-tray');
+      if (t && window.ResizeObserver && !t._ro) { t._ro = new ResizeObserver(setTray); t._ro.observe(t); }
+    }).observe(trayHost, { childList: true, subtree: true, attributes: true });
+    setTray();
+  }
   // ---------- Photo viewer ----------
   var dataEl = document.getElementById('photo-data');
   var viewer = document.getElementById('viewer');
@@ -46,6 +65,8 @@
     current = i;
     mainImg.src = photos[i].src;
     mainImg.alt = label(i);
+    var cnt = document.getElementById('photo-count');
+    if (cnt) cnt.textContent = (i + 1) + ' / ' + photos.length;
     main.setAttribute('data-index', i);
     main.setAttribute('aria-label', 'Enlarge photo: ' + label(i));
     thumbs.forEach(function (t, k) {
