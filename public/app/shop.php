@@ -24,5 +24,7 @@ return [
 
     // Demo notice: shown on every page and keeps search engines away while this is a preview.
     // Set to '' once the store adopts the site.
+    // Home page picture, cycled in order (files in public/assets/hero/). Empty = a photo of a listed gun.
+    'hero_images'   => ['store-inside.jpg', 'flag.jpg', 'storefront.jpg', 'storefront-2.jpg'],
     'demo_notice'   => 'Demo site prepared for Crosshairs Gun Store — not the store\'s official website. For the real store visit crosshairsgunstore.com or call (310) 791-4327.',
 ];

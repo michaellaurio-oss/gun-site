@@ -9,6 +9,13 @@ foreach ($all as $l) {
         $counts[$l['category']]++;
     }
 }
+// The shop's own pictures (assets/hero/, listed in shop.php 'hero_images'); only files that exist are used.
+$heroSlides = [];
+foreach (($GLOBALS['shop']['hero_images'] ?? []) as $f) {
+    if (is_file(__DIR__ . '/assets/hero/' . $f)) {
+        $heroSlides[] = url('assets/hero/' . $f);
+    }
+}
 $heroPhoto = null;
 foreach ($justListed as $l) {
     if ($l['primary_photo']) {
@@ -30,6 +37,13 @@ page_header('', 'home', ['description' => shop('hero_text')]);
         <a class="btn btn-outline" href="<?= e(url('how-to-buy.php')) ?>">How buying works</a>
       </div>
     </div>
+    <?php if ($heroSlides): ?>
+    <div class="hero-photo hero-slides" data-hero-slides role="img" aria-label="Pictures of the store">
+      <?php foreach ($heroSlides as $i => $src): ?>
+        <img src="<?= e($src) ?>" alt=""<?= $i === 0 ? '' : ' loading="lazy"' ?> class="<?= $i === 0 ? 'is-on' : '' ?>">
+      <?php endforeach; ?>
+    </div>
+    <?php else: ?>
     <div class="hero-photo ph">
       <?php if ($heroPhoto): ?>
         <img src="<?= e($heroPhoto) ?>" alt="">
@@ -37,6 +51,7 @@ page_header('', 'home', ['description' => shop('hero_text')]);
         <?= icon('photo', 40) ?>
       <?php endif; ?>
     </div>
+    <?php endif; ?>
   </section>
 
   <section class="promises" aria-label="What you get with every listing">

@@ -558,3 +558,9 @@ textarea.input { padding: 10px 12px; min-height: 140px; resize: vertical; line-h
 .cmp-leo .leo-badge-btn { min-height: 24px; padding: 2px 8px; font-size: 11px; }
 .cmp-leo .tip-bubble { width: 210px; }
 .small-leo { min-height: 22px; padding: 1px 8px; font-size: 11px; margin-top: 4px; }
+
+/* Home hero: the shop's own pictures, cross-fading */
+.hero-slides { position: relative; background: var(--photo); }
+.hero-slides img { position: absolute; inset: 0; opacity: 0; transition: opacity .9s ease; }
+.hero-slides img.is-on { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .hero-slides img { transition: none; } }

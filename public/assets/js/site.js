@@ -33,3 +33,18 @@
     if (trig) { e.preventDefault(); trig.focus(); }
   });
 })();
+
+// Home page: cycle the hero pictures (stays on the first one for reduced-motion users).
+(function () {
+  var box = document.querySelector('[data-hero-slides]');
+  if (!box) return;
+  var imgs = box.querySelectorAll('img');
+  if (imgs.length < 2) return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var i = 0;
+  setInterval(function () {
+    imgs[i].classList.remove('is-on');
+    i = (i + 1) % imgs.length;
+    imgs[i].classList.add('is-on');
+  }, 5000);
+})();

@@ -37,3 +37,6 @@ archive/
 public/stock-photos/*
 !public/stock-photos/.htaccess
 !public/photos/.htaccess
+
+# Photos taken from the store's own website for the demo (not for the public repo)
+public/assets/hero/*
