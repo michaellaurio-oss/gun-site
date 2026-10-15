@@ -116,6 +116,9 @@
       var stillThere = matches.some(function (o) { return o.value === keep; });
       pick.value = stillThere ? keep : (words.length && matches.length ? matches[0].value : '');
       none.hidden = !(words.length && !matches.length);
+      // While searching, show the matches as an open list (up to 8 rows, then it scrolls);
+      // with an empty search it goes back to the normal drop-down.
+      pick.size = (words.length && matches.length) ? Math.min(8, Math.max(2, matches.length + pick.querySelectorAll('optgroup').length + 1)) : 1;
       if (addLink) {
         var base = addLink.getAttribute('data-base');
         addLink.href = search.value.trim() ? base + (base.indexOf('?') >= 0 ? '&' : '?') + 'q=' + encodeURIComponent(search.value.trim()) : base;
