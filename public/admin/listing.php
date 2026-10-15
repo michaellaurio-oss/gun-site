@@ -86,10 +86,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'sold_price_usd'      => in_num('sold_price_usd'),
         ];
         // This gun's own specs (blank = the model's). Never written to the firearm or the CA roster.
-        foreach (SPEC_OVERRIDE_FIELDS as $k => [, $kind]) {
-            $data['spec_' . $k] = $kind === 'text' ? in_text('spec_' . $k, 200) : ($kind === 'int' ? in_int('spec_' . $k) : in_num('spec_' . $k));
-            if ($kind !== 'text' && $data['spec_' . $k] !== null && $data['spec_' . $k] < 0) {
-                $specErr = SPEC_OVERRIDE_FIELDS[$k][0] . " can't be negative.";
+        $specsCleared = false;
+        $prevListing = $id ? load_listing($id) : null;
+        foreach (SPEC_OVERRIDE_FIELDS as $k => [$specLabel, $kind]) {
+            $key = 'spec_' . $k;
+            $data[$key] = $kind === 'text' ? in_text($key, 200) : ($kind === 'int' ? in_int($key) : in_num($key));
+            if (in_array($k, ['caliber', 'action'], true)) {
+                $data[$key] = canonical_value($k, $data[$key]);   // one spelling per caliber / action (migration 006)
+            }
+            if ($kind !== 'text' && $data[$key] !== null && $data[$key] <= 0) {
+                $specErr = $specLabel . " must be more than 0 (leave it empty to use the model's figure).";
+            }
+        }
+        // The overrides belong to one firearm: pointing the listing at another model clears them.
+        if ($prevListing && (int)$prevListing['firearm_id'] !== $data['firearm_id']) {
+            foreach (SPEC_OVERRIDE_FIELDS as $k => $_) {
+                if ($data['spec_' . $k] !== null) {
+                    $specsCleared = true;
+                }
+                $data['spec_' . $k] = null;
             }
         }
         $assignedStock = null;
@@ -139,6 +154,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $added = add_listing_photos($db, $id);
             $withPhotos = $added ? ' with ' . $added . ' photo' . ($added === 1 ? '' : 's') : '';
             flash(($created ? 'Listing created' : 'Listing saved') . $withPhotos . '.');
+            if ($specsCleared) {
+                flash("This gun's own specs were cleared because the firearm changed.");
+            }
             if ($assignedStock) {
                 flash('Stock # ' . $assignedStock . ' assigned.');
             }
@@ -348,7 +366,7 @@ admin_header($heading, 'listings');
   $modelSpecs = !empty($v['firearm_id']) ? firearm_specs((int)$v['firearm_id']) : [];
   $anySpec = false;
   foreach (SPEC_OVERRIDE_FIELDS as $k => $_) {
-      if (($v['spec_' . $k] ?? '') !== '' && ($v['spec_' . $k] ?? null) !== null) { $anySpec = true; break; }
+      if (($v['spec_' . $k] ?? '') !== '') { $anySpec = true; break; }
   }
   ?>
   <fieldset>
@@ -357,7 +375,8 @@ admin_header($heading, 'listings');
       <summary>Fill in only what is different from the factory model<?= $anySpec ? ' (some are set)' : '' ?></summary>
       <p class="hint">For example a threaded barrel, another caliber or a bigger magazine. The grey text is the model's figure,
         used when a box is empty. These figures belong to this gun only: they never change the firearm or its CA roster status.
-        Imperial values; metric is worked out for the site. The grey figures are for the firearm saved on this listing.</p>
+        Imperial values; metric is worked out for the site. Changing the firearm and saving clears these boxes.
+        If you set the unloaded weight, the model's empty-magazine and loaded weights are hidden for this gun (set them here too if you know them).</p>
       <?php
       $groupName = null;
       foreach (SPEC_OVERRIDE_FIELDS as $k => [$label, $kind, $group]):
