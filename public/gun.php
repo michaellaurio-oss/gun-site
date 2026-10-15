@@ -242,7 +242,7 @@ page_header($fullName, $l['new_used'] === 'new' ? 'new' : 'used', ['description'
 <?php if ($photos): ?>
 <dialog class="viewer" id="viewer" aria-label="Photo viewer">
   <div class="viewer-bar">
-    <div><span class="viewer-name"><?= e($fullName) ?></span><span class="viewer-pos" id="viewer-pos"></span></div>
+    <div><span class="viewer-name"><?= e($fullName) ?></span><span class="viewer-pos" id="viewer-pos"></span><span class="viewer-hint">Click the photo to zoom in</span></div>
     <button type="button" class="vbtn" id="viewer-close" aria-label="Close photo viewer"><?= icon('close', 22) ?></button>
   </div>
   <div class="viewer-body">

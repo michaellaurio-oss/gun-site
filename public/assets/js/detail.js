@@ -53,9 +53,48 @@
     });
   }
 
+  // Click the enlarged photo again to zoom in on details; move the mouse (or drag a finger) to look around; click again to zoom out.
+  var zoomed = false;
+  function zoomTo(clientX, clientY) {
+    // Measure the photo's normal (unzoomed) box: it is centred in its frame, and the transform doesn't change offsetWidth.
+    var c = img.parentNode.getBoundingClientRect();
+    var w = img.offsetWidth || 1, h = img.offsetHeight || 1;
+    var left = c.left + (c.width - w) / 2, top = c.top + (c.height - h) / 2;
+    var px = Math.min(100, Math.max(0, (clientX - left) / w * 100));
+    var py = Math.min(100, Math.max(0, (clientY - top) / h * 100));
+    img.style.transformOrigin = px + '% ' + py + '%';
+  }
+  function zoomOut() {
+    zoomed = false;
+    img.classList.remove('zoomed');
+    img.style.transform = '';
+    img.style.transformOrigin = '';
+    img.parentNode.classList.remove('is-zoomed');
+  }
+  function zoomIn(clientX, clientY) {
+    var shown = img.clientWidth || 1;
+    var scale = Math.min(4, Math.max(2, (img.naturalWidth || shown * 2) / shown));   // about the photo's real pixels
+    zoomed = true;
+    img.classList.add('zoomed');
+    img.parentNode.classList.add('is-zoomed');
+    zoomTo(clientX, clientY);
+    img.style.transform = 'scale(' + scale.toFixed(2) + ')';
+  }
+  img.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (zoomed) zoomOut(); else zoomIn(e.clientX, e.clientY);
+  });
+  img.addEventListener('mousemove', function (e) { if (zoomed) zoomTo(e.clientX, e.clientY); });
+  img.addEventListener('touchmove', function (e) {
+    if (!zoomed) return;
+    e.preventDefault();
+    zoomTo(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: false });
+
   function show(i) {
     var n = photos.length;
     i = (i + n) % n;
+    zoomOut();
     setMain(i);
     img.src = photos[i].src;
     img.alt = label(i);
@@ -71,6 +110,7 @@
   }
 
   function close() {
+    zoomOut();
     if (typeof viewer.close === 'function') viewer.close(); else viewer.removeAttribute('open');
   }
 
@@ -98,6 +138,10 @@
   viewer.addEventListener('keydown', function (e) {
     if (e.key === 'ArrowLeft') { e.preventDefault(); show(current - 1); }
     if (e.key === 'ArrowRight') { e.preventDefault(); show(current + 1); }
+    if (e.key === 'z' || e.key === 'Z' || e.key === '+' || e.key === '-') {   // keyboard zoom, centred
+      e.preventDefault();
+      if (zoomed) { zoomOut(); } else { var r = img.getBoundingClientRect(); zoomIn(r.left + r.width / 2, r.top + r.height / 2); }
+    }
   });
   // Click on the dark backdrop area (not the photo or buttons) closes the viewer.
   viewer.addEventListener('click', function (e) {
@@ -110,7 +154,7 @@
   viewer.addEventListener('touchend', function (e) {
     if (x0 === null) return;
     var dx = e.changedTouches[0].clientX - x0;
-    if (Math.abs(dx) > 50) show(current + (dx < 0 ? 1 : -1));
+    if (!zoomed && Math.abs(dx) > 50) show(current + (dx < 0 ? 1 : -1));   // while zoomed a drag looks around instead
     x0 = null;
   });
 })();
