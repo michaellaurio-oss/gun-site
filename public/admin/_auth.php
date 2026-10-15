@@ -216,3 +216,36 @@ function last_auto_backup(): ?string
     sort($all);
     return preg_match('/(\d{4})(\d{2})(\d{2})\.db$/', end($all), $m) ? "$m[1]-$m[2]-$m[3]" : null;
 }
+/** Bare address from "Name <a@b.c>" or "a@b.c" (for the -f envelope sender). */
+function mail_address(string $from): string
+{
+    return preg_match('/<([^>]+)>/', $from, $m) ? trim($m[1]) : trim($from);
+}
+
+/**
+ * Send a plain-text email the way shared hosts want it: a From on the site's own domain AND the
+ * same address as the envelope sender (-f), plus Date and Message-ID. Without -f many hosts send
+ * from the server's own name, which Gmail and others quietly drop. Returns true if the server
+ * accepted it (not a guarantee of delivery). The result is written to the PHP error log.
+ */
+function send_mail(string $to, string $subject, string $body): bool
+{
+    $from = mail_from();
+    $addr = mail_address($from);
+    $domain = substr(strrchr($addr, '@') ?: '@localhost', 1);
+    $headers = [
+        'From: ' . $from,
+        'Reply-To: ' . $from,
+        'Date: ' . date('r'),
+        'Message-ID: <' . bin2hex(random_bytes(8)) . '@' . $domain . '>',
+        'MIME-Version: 1.0',
+        'Content-Type: text/plain; charset=UTF-8',
+        'X-Mailer: gun-site',
+    ];
+    $extra = filter_var($addr, FILTER_VALIDATE_EMAIL) ? '-f' . $addr : '';
+    $ok = $extra !== ''
+        ? @mail($to, '=?UTF-8?B?' . base64_encode($subject) . '?=', $body, implode("\r\n", $headers), $extra)
+        : @mail($to, '=?UTF-8?B?' . base64_encode($subject) . '?=', $body, implode("\r\n", $headers));
+    error_log('gun-site mail to ' . preg_replace('/^(.).*(@.*)$/', '$1***$2', $to) . ' from ' . $addr . ': ' . ($ok ? 'accepted' : 'REFUSED'));
+    return (bool)$ok;
+}

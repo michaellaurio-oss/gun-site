@@ -26,15 +26,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db->prepare("INSERT INTO password_resets (admin_id, token_hash, expires_at) VALUES (?, ?, datetime('now', '+1 hour'))")
                ->execute([(int)$a['id'], hash('sha256', $token)]);
             $link = rtrim((string)config('site_url'), '/') . url('admin/reset.php', ['token' => $token]);
-            $from = mail_from();
-            $headers = ['Content-Type: text/plain; charset=UTF-8'];
-            if ($from !== '') {
-                $headers[] = 'From: ' . preg_replace('/[\r\n]+/', ' ', $from);
-            }
             $body = "Hello " . $a['first_name'] . ",\n\nSomeone asked to reset the admin password for short name \"" . $a['username'] . "\".\n"
                   . "Use this link within 1 hour to choose a new password:\n\n" . $link . "\n\n"
                   . "If you didn't ask for this, ignore this message; your password has not changed.\n";
-            @mail($a['email'], '=?UTF-8?B?' . base64_encode('Reset your admin password') . '?=', $body, implode("\r\n", $headers));
+            send_mail($a['email'], 'Reset your admin password', $body);
             audit('reset requested', 'admin', (int)$a['id'], 'Password reset link requested', $a['username'] . ' ' . $a['first_name'] . ' ' . $a['last_name']);
         }
         $sent = true;

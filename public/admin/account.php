@@ -34,10 +34,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$a['email']) {
             flash('Add your email address first, save it, then send the test.', 'err');
         } else {
-            $ok = @mail($a['email'], '=?UTF-8?B?' . base64_encode('Admin test email') . '?=',
-                "This is a test from the admin site. If you can read this, password reset emails will reach you.\n",
-                "Content-Type: text/plain; charset=UTF-8\r\nFrom: " . mail_from());
-            flash($ok ? 'The server accepted the test email for ' . $a['email'] . '. Check your inbox (and spam) in a minute or two.' : 'The server refused to send the email. Password reset emails will not work until the host mail settings are fixed.', $ok ? 'ok' : 'err');
+            $ok = send_mail($a['email'], 'Admin test email',
+                "This is a test from the admin site. If you can read this, password reset emails will reach you.\n");
+            flash($ok ? 'The server accepted the test email for ' . $a['email'] . ' (sent from ' . mail_address(mail_from()) . '). Check your inbox and spam folder in a minute or two.' : 'The server refused to send the email. Password reset emails will not work until the host mail settings are fixed.', $ok ? 'ok' : 'err');
         }
     } elseif ($action === 'contact') {
         $email = trim((string)($_POST['email'] ?? ''));
