@@ -227,7 +227,7 @@ if (isset($_GET['keep']) && !empty($_SESSION['form'])) {
 unset($_SESSION['form']);
 $val = fn(string $k) => e($v[$k] ?? '');
 
-$models = $db->query("SELECT id, manufacturer, model, category, caliber, data_notes LIKE '%Caliber is a placeholder%' AS placeholder FROM firearms ORDER BY manufacturer COLLATE NOCASE, model COLLATE NOCASE")->fetchAll();
+$models = $db->query("SELECT id, manufacturer, model, category, caliber, ca_rostered, data_notes LIKE '%Caliber is a placeholder%' AS placeholder FROM firearms ORDER BY manufacturer COLLATE NOCASE, model COLLATE NOCASE")->fetchAll();
 
 // Coming back from "Add a new firearm": pre-select the firearm that was just created.
 $picked = (int)($_GET['firearm_id'] ?? 0);
@@ -290,7 +290,7 @@ admin_header($heading, 'listings');
                   $mf = $m['manufacturer'];
               }
               echo '<option value="' . (int)$m['id'] . '"' . ((int)$m['id'] === (int)($v['firearm_id'] ?? 0) ? ' selected' : '') . '>'
-                  . e($m['manufacturer'] . ' ' . $m['model'] . ' — ' . ($m['caliber'] ?? 'caliber not set') . ($m['placeholder'] ? ' (caliber not confirmed)' : '')) . '</option>';
+                  . e($m['manufacturer'] . ' ' . $m['model'] . ' — ' . ($m['caliber'] ?? 'caliber not set') . ($m['placeholder'] ? ' (caliber not confirmed)' : '') . ((int)$m['ca_rostered'] === 1 && $m['category'] === 'handgun' ? ' (on CA roster)' : '')) . '</option>';
           endforeach;
           echo $mf !== null ? '</optgroup>' : ''; ?>
         </select>
