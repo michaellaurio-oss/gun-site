@@ -34,15 +34,19 @@
   });
 })();
 
-// Home page: cycle the hero pictures (stays on the first one for reduced-motion users).
+// Home page: cycle the hero pictures every 5 s. People who asked for reduced motion get the
+// same pictures with an instant swap instead of a fade (the CSS drops the transition); hovering
+// the picture pauses it.
 (function () {
   var box = document.querySelector('[data-hero-slides]');
   if (!box) return;
   var imgs = box.querySelectorAll('img');
   if (imgs.length < 2) return;
-  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  var i = 0;
+  var i = 0, paused = false;
+  box.addEventListener('mouseenter', function () { paused = true; });
+  box.addEventListener('mouseleave', function () { paused = false; });
   setInterval(function () {
+    if (paused || document.hidden) return;
     imgs[i].classList.remove('is-on');
     i = (i + 1) % imgs.length;
     imgs[i].classList.add('is-on');
