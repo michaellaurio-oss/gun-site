@@ -159,3 +159,6 @@ form.inline { display: inline; margin: 0; }
 /* Show-password switch under password boxes */
 .show-pw { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 14px; color: var(--ink-2, #43474C); cursor: pointer; min-height: 32px; }
 .show-pw input { width: 18px; height: 18px; }
+
+/* Tidy values: the merge bar stays in view while scrolling a long list */
+.values-bar { position: sticky; top: 0; z-index: 20; background: var(--bg, #F7F6F3); padding: 10px 0; border-bottom: 1px solid var(--border); box-shadow: 0 6px 8px -8px rgba(0, 0, 0, .25); }
