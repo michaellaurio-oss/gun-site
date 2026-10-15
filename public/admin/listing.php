@@ -1,6 +1,7 @@
 <?php
 require __DIR__ . '/_admin.php';
 require_login();
+require __DIR__ . '/_firearm_panel.php';
 
 $id = (int)($_GET['id'] ?? $_POST['id'] ?? 0);
 $db = db();
@@ -327,6 +328,9 @@ admin_header($heading, 'listings');
           <a class="btn btn-outline btn-sm" data-add-firearm
              href="<?= e(url('admin/model.php', ['return' => 'listing', 'listing' => $id ?: null])) ?>"
              data-base="<?= e(url('admin/model.php', ['return' => 'listing', 'listing' => $id ?: null])) ?>">+ Add a new firearm</a></p>
+        <div class="fpanel" id="firearm-panel" aria-live="polite" data-url="<?= e(url('admin/firearm-info.php')) ?>">
+          <?= firearm_panel_html((int)($v['firearm_id'] ?? 0)) ?>
+        </div>
         <span class="hint">Specs, caliber and CA roster status come from the firearm.
           <?php if (!empty($v['firearm_id'])): ?><a href="<?= e(url('admin/model.php', ['id' => $v['firearm_id']])) ?>">Edit this firearm</a><?php endif; ?>
           <?php if ($listing): ?> Adding a new firearm leaves this page, so save any other changes first.<?php endif; ?></span>

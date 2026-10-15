@@ -116,6 +116,7 @@
       var stillThere = matches.some(function (o) { return o.value === keep; });
       pick.value = stillThere ? keep : (words.length && matches.length ? matches[0].value : '');
       none.hidden = !(words.length && !matches.length);
+      refreshPanel();
       // While searching, show the matches as an open list (up to 8 rows, then it scrolls);
       // with an empty search it goes back to the normal drop-down.
       pick.size = (words.length && matches.length) ? Math.min(8, Math.max(2, matches.length + pick.querySelectorAll('optgroup').length + 1)) : 1;
@@ -124,6 +125,20 @@
         addLink.href = search.value.trim() ? base + (base.indexOf('?') >= 0 ? '&' : '?') + 'q=' + encodeURIComponent(search.value.trim()) : base;
       }
     };
+    // "Firearm details" panel: show what the picked firearm brings with it (read-only).
+    var panel = document.getElementById('firearm-panel');
+    var shownId = pick.value;
+    var refreshPanel = function () {
+      if (!panel || pick.value === shownId) return;
+      shownId = pick.value;
+      if (!shownId) { panel.innerHTML = '<p class="muted">Pick a firearm to see its details.</p>'; return; }
+      var wanted = shownId;
+      fetch(panel.getAttribute('data-url') + '?id=' + encodeURIComponent(wanted), { credentials: 'same-origin' })
+        .then(function (r) { return r.ok ? r.text() : Promise.reject(); })
+        .then(function (html) { if (wanted === shownId) panel.innerHTML = html; })
+        .catch(function () { /* keep the old panel; the page still saves fine */ });
+    };
+    pick.addEventListener('change', refreshPanel);
     search.addEventListener('input', rebuild);
     search.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); pick.focus(); } });
   }
