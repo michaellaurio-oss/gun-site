@@ -239,7 +239,7 @@ if (!$model && isset($_GET['roster'])) {
         $make = roster_display_make($db, $fromRoster['manufacturer']);
         $name = roster_clean_model($fromRoster['model_base']);
         if (roster_make_key($make) === 'glock' && preg_match('/^\d/', $name)) {
-            $name = 'G' . $name;   // match the shop's naming, e.g. roster "19" -> "G19"
+            $name = 'G' . $name . (stripos($name, 'gen') === false ? ' Gen3' : '');   // shop naming: roster "19" -> "G19 Gen3" (all roster Glocks are Gen3)
         }
         $v = array_merge($v, [
             'manufacturer' => $make, 'model' => $name, 'category' => 'handgun',

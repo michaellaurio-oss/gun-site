@@ -202,6 +202,7 @@ function roster_clean_model(string $model, string $make = ''): string
     $s = preg_replace('/\b(?:model|black|od|fde|flat dark earth|green|grey|gray|tan|coyote|two[- ]tone|stainless|blued?|satin|matte|internal lock)\b/i', ' ', $s);
     if (roster_make_key($make) === 'glock') {
         $s = preg_replace('/\bG(?=\d)/i', '', $s);
+        $s = preg_replace('/\bgen\.?\s*3\b/i', ' ', $s);   // every Glock on the roster is Gen3 ("G19 Gen3" = roster "19")
     }
     return trim(preg_replace('/\s+/', ' ', $s));
 }
@@ -356,7 +357,7 @@ function roster_catalog_name(string $modelBase, string $rosterMake, string $disp
         $s = trim(preg_replace('/\s+/', ' ', preg_replace('/\([^)]*\)/', ' ', $raw))) ?: $raw;
     }
     if (roster_make_key($displayMake) === 'glock' && preg_match('/^\d/', $s)) {
-        $s = 'G' . $s;                                                    // shop naming: "19" -> "G19"
+        $s = 'G' . $s . (stripos($s, 'gen') === false ? ' Gen3' : '');    // shop naming: "19" -> "G19 Gen3" (all roster Glocks are Gen3)
     }
     return $s;
 }

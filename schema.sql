@@ -318,7 +318,7 @@ CREATE INDEX idx_audit_entity ON audit_log(entity_type, entity_id);
 CREATE INDEX idx_audit_admin  ON audit_log(admin_id);
 
 CREATE TABLE schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT (datetime('now')));
-INSERT INTO schema_migrations (version) VALUES ('001'), ('002'), ('003'), ('004'), ('005'), ('006'), ('007'), ('008'), ('009');
+INSERT INTO schema_migrations (version) VALUES ('001'), ('002'), ('003'), ('004'), ('005'), ('006'), ('007'), ('008'), ('009'), ('010');
 
 -- What the website shows: guns currently for sale, with their key specs
 CREATE VIEW listings_public AS
