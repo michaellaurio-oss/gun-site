@@ -17,7 +17,7 @@ This repo holds the code with **demo data only**; the shop's real inventory neve
 - **Stock photos**: new guns without their own photos show the manufacturer image, clearly tagged.
 - **Admin** (named accounts, owner / staff roles, activity log, forgot-password email): listings with bulk status changes and photo upload (resized in
   the browser), per-gun spec overrides (a used gun can differ from the factory model), firearm catalog, CA roster, tidy-up of caliber / action spellings, contact messages.
-- Home-page hero cycles through the shop's own pictures (managed in the admin); owners get a Sales summary, bulk listing edits and pick-list tidying; the database is copied automatically each day.
+- Home-page hero cycles through the shop's own pictures (managed in the admin); owners get a Sales summary, ; the database is copied automatically each day.
 - Contact form with CSRF protection, honeypot and rate limiting.
 - Accessible: keyboard-reachable tooltips, 44px targets, ARIA tabs, focus-trapped photo dialog.
 

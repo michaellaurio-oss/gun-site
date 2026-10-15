@@ -171,12 +171,21 @@ function firearm_label(int $id): string
 /** Sender for emails the admin sends (password links, test mail). */
 function mail_from(): string
 {
-    $from = (string)(config('contact_from') ?: config('contact_to'));
-    if ($from === '') {
-        $host = (string)parse_url((string)config('site_url'), PHP_URL_HOST);
-        $from = 'noreply@' . ($host ?: 'localhost');
+    $host = (string)parse_url((string)config('site_url'), PHP_URL_HOST) ?: (string)preg_replace('/:\d+$/', '', (string)($_SERVER['HTTP_HOST'] ?? ''));
+    $host = preg_replace('/^www\./i', '', $host) ?: 'localhost';
+    $from = trim((string)config('contact_from'));
+    // Must be on the site's own domain: a gmail.com (etc.) From sent by the web host is dropped by the receiver (DMARC).
+    if ($from === '' || strcasecmp((string)substr(strrchr(mail_address($from), '@') ?: '@', 1), $host) !== 0) {
+        $from = 'noreply@' . $host;
     }
     return preg_replace('/[\r\n]+/', ' ', $from);
+}
+
+/** Where replies to admin emails go: the shop's own contact address, if set. */
+function mail_reply_to(): string
+{
+    $r = trim((string)(config('contact_to') ?: ''));
+    return filter_var($r, FILTER_VALIDATE_EMAIL) ? $r : mail_from();
 }
 
 /**
@@ -235,7 +244,7 @@ function send_mail(string $to, string $subject, string $body): bool
     $domain = substr(strrchr($addr, '@') ?: '@localhost', 1);
     $headers = [
         'From: ' . $from,
-        'Reply-To: ' . $from,
+        'Reply-To: ' . mail_reply_to(),
         'Date: ' . date('r'),
         'Message-ID: <' . bin2hex(random_bytes(8)) . '@' . $domain . '>',
         'MIME-Version: 1.0',

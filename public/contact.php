@@ -57,13 +57,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $clean = fn($s) => preg_replace('/[\r\n]+/', ' ', $s);  // no header injection
                 $subject = 'Website enquiry' . ($form['stock'] !== '' ? ' – stock #' . $clean($form['stock']) : '');
                 $body = "Name: {$form['name']}\nEmail: {$form['email']}\nPhone: {$form['phone']}\nStock #: {$form['stock']}\n\n{$form['message']}\n";
+                // From must be on the site's own domain (a gmail.com From sent by the host is dropped).
+                $siteHost = (string)parse_url((string)config('site_url'), PHP_URL_HOST) ?: (string)preg_replace('/:\d+$/', '', (string)($_SERVER['HTTP_HOST'] ?? ''));
+                $siteHost = preg_replace('/^www\./i', '', $siteHost) ?: 'localhost';
+                $cf = trim((string)config('contact_from'));
+                $cfAddr = preg_match('/<([^>]+)>/', $cf, $cm) ? trim($cm[1]) : $cf;
+                $fromHdr = ($cf !== '' && strcasecmp((string)substr(strrchr($cfAddr, '@') ?: '@', 1), $siteHost) === 0) ? $cf : 'noreply@' . $siteHost;
                 $headers = [
-                    'From: ' . $clean((string)(config('contact_from') ?: $to)),
+                    'From: ' . $clean($fromHdr),
                     'Reply-To: ' . $clean($form['email']),
                     'Content-Type: text/plain; charset=UTF-8',
                 ];
                 // Envelope sender = the From address (-f): hosts that do not set it send from the server's own name, which mail providers drop.
-                $fromAddr = (string)(config('contact_from') ?: $to);
+                $fromAddr = $fromHdr;
                 $fromAddr = preg_match('/<([^>]+)>/', $fromAddr, $mm) ? trim($mm[1]) : trim($fromAddr);
                 $subjectEnc = '=?UTF-8?B?' . base64_encode($subject) . '?=';
                 $sent = filter_var($fromAddr, FILTER_VALIDATE_EMAIL)
