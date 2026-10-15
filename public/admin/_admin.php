@@ -152,6 +152,8 @@ function admin_header(string $title, string $active = ''): void
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="<?= e(asset('assets/favicon.svg')) ?>" type="image/svg+xml">
+<link rel="apple-touch-icon" href="<?= e(asset('assets/favicon.png')) ?>">
 <meta name="robots" content="noindex, nofollow">
 <title><?= e($title) ?> – Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
